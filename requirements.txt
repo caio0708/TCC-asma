@@ -7,7 +7,10 @@ cachetools
 pandas
 scikit-learn
 paho-mqtt
-tensorflow
+#tensorflow
 docling
 
 # pip install -r requirements.txt
+
+# venv\Scripts\activate
+

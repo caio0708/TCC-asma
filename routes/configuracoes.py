@@ -4,41 +4,53 @@ import csv
 
 configuracoes_bp = Blueprint('configuracoes', __name__)
 
-# Define diretório e caminho do CSV
+# Diretório e arquivo de usuários
 DATA_DIR = os.path.join(os.getcwd(), 'dados')
 USUARIOS_CSV = os.path.join(DATA_DIR, 'usuarios.csv')
 
 # Garante existência da pasta de dados
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(DATA_DIR, exist_ok=True)
+
+def salvar_usuario_csv(username, age, gender, altura):
+    """Salva dados do usuário no CSV."""
+    file_exists = os.path.isfile(USUARIOS_CSV)
+    with open(USUARIOS_CSV, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["Username", "Age", "Gender", "Altura"])
+        writer.writerow([username, age, gender, altura])
+
+def validar_formulario(form):
+    """Valida dados do formulário e retorna tupla (dados, mensagem_erro)."""
+    username = form.get('username', '').strip()
+    age_str  = form.get('age', '').strip()
+    gender   = form.get('gender', '').strip()
+    altura   = form.get('altura', '').strip()
+
+    if not username or not age_str or not gender:
+        return None, 'Todos os campos obrigatórios devem ser preenchidos.'
+
+    try:
+        age = int(age_str)
+        if age <= 0:
+            raise ValueError
+    except ValueError:
+        return None, 'Idade deve ser um número inteiro positivo.'
+
+    return (username, age, gender, altura), None
 
 @configuracoes_bp.route('/configuracoes', methods=['GET', 'POST'])
 def configuracoes():
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        age_str  = request.form.get('age', '').strip()
-        gender   = request.form.get('gender', '').strip()
-        altura   = request.form.get('altura', '').strip()
-
-        if not username or not age_str or not gender:
-            flash('Todos os campos são obrigatórios.', 'danger')
+        dados, erro = validar_formulario(request.form)
+        if erro:
+            flash(erro, 'danger')
             return redirect(url_for('configuracoes.configuracoes'))
 
-        try:
-            age = int(age_str)
-        except ValueError:
-            flash('Idade deve ser um número inteiro.', 'danger')
-            return redirect(url_for('configuracoes.configuracoes'))
+        username, age, gender, altura = dados
+        salvar_usuario_csv(username, age, gender, altura)
 
-        # Salva no CSV
-        file_exists = os.path.isfile(USUARIOS_CSV)
-        with open(USUARIOS_CSV, mode='a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(["Username", "Age", "Gender","Altura"])
-            writer.writerow([username, age, gender, altura])
-
-        # Sobrescreve a sessão atual
+        # Atualiza sessão do usuário
         session['username'] = username
         session['age']      = age
         session['gender']   = gender
@@ -47,13 +59,14 @@ def configuracoes():
         flash(f"Dados salvos com sucesso! Bem-vindo, {username}.", "success")
         return redirect(url_for('configuracoes.configuracoes'))
 
-    # GET
-    username = session.get('username', '')
-    age      = session.get('age', '')
-    gender   = session.get('gender', '')
-    altura   = session.get('altura', '')
-    return render_template('configuracoes.html', username=username, age=age, gender=gender, altura=altura)
-
+    # GET: carrega dados da sessão para o formulário
+    return render_template(
+        'configuracoes.html',
+        username=session.get('username', ''),
+        age=session.get('age', ''),
+        gender=session.get('gender', ''),
+        altura=session.get('altura', '')
+    )
 
 @configuracoes_bp.route('/sair')
 def logout():
