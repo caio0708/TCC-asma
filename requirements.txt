@@ -1,0 +1,13 @@
+langchain
+langchain-ollama
+langchain-chroma
+beautifulsoup4
+flask
+cachetools
+pandas
+scikit-learn
+paho-mqtt
+tensorflow
+docling
+
+# pip install -r requirements.txt

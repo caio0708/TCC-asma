@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sensores</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <!-- Barra de Navegação -->
+  <nav class="navbar">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/Logo.jpg') }}" alt="Logo" width="40" height="40">
+      <span>TCC Asmatic</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="/chat">Assistente IA</a></li>
+      <li><a href="/">Painel</a></li>
+      <li><a href="/sensores" class="active">Sensores</a></li>
+      <li><a href="/insights">Insights</a></li>
+      <li><a href="/configuracoes">Configurações</a></li>
+    </ul>
+  </nav>
+  <main>
+    <div class="sensor-cards-container">
+      <div class="card" data-id="frequencia-respiratoria">
+        <div class="card-title">Frequência Respiratória</div>
+        <div class="icon-bubble">🌬️</div>
+        <p>Sensor de fluxo de ar nasal</p>
+        <div class="card-value">-- <span>min</span></div>
+        <div class="card-updated">Atualizado: 12:55</div>
+      </div>
+      
+      <div class="card" data-id="batimentos-cardiacos">
+        <div class="card-title">Batimentos Cardíacos</div>
+        <div class="icon-bubble">❤️</div>
+        <p>Sensor de pulso óptico (PPG)</p>
+        <div class="card-value">-- <span>bpm</span></div>
+        <div class="card-updated">Atualizado: 12:55</div>
+      </div>
+      
+      <div class="card" data-id="saturacao">
+        <div class="card-title">Saturação de Oxigênio (SpO₂)</div>
+        <div class="icon-bubble">💨</div>
+        <p>Oxímetro de dedo</p>
+        <div class="card-value">-- <span>%</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+      
+      <div class="card" data-id="temperatura-corporal">
+        <div class="card-title">Temperatura Corporal</div>
+        <div class="icon-bubble">🌡️</div>
+        <p>Sensor DS18B20</p>
+        <div class="card-value">-- <span>°C</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+
+      <div class="card" data-id="temperatura-ambiente">
+        <div class="card-title">Temperatura Ambiente</div>
+        <div class="icon-bubble">🌡️</div>
+        <p>Sensor MPU-6050 - Acelerometro</p>
+        <div class="card-value">-- <span>°C</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+
+      <div class="card" data-id="temperatura-oxi">
+        <div class="card-title">Temperatura Oxímetro</div>
+        <div class="icon-bubble">🌡️</div>
+        <p>Sensor MAX30105 - Oxímetro</p>
+        <div class="card-value">-- <span>°C</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+      
+      <div class="card" data-id="qualidade-ar-aqi">
+        <div class="card-title">Índice de Qualidade do Ar</div>
+        <div class="icon-bubble">🏭</div>
+        <p>AQI</p>
+        <div class="card-value">-- <span>AQI</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+
+      <div class="card" data-id="qualidade-ar-pm25">
+        <div class="card-title">Qualidade do Ar</div>
+        <div class="icon-bubble">🏭</div>
+        <p>Sensor de partículas finas (PM2.5)</p>
+        <div class="card-value">-- <span>PM25</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+
+      <div class="card" data-id="qualidade-ar-pm10">
+        <div class="card-title">Qualidade do Ar</div>
+        <div class="icon-bubble">🏭</div>
+        <p>Sensor de partículas inaláveis grossas (PM10)</p>
+        <div class="card-value">-- <span>PM10</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+      
+      <div class ="card" data-id="movimento-toracico">
+        <div class="card-title">Movimento Torácico</div>
+        <div class="icon-bubble">📈</div>
+        <p>Sensor piezoelétrico</p>
+        <div class="card-value">-- <span>nível</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+
+      <div class ="card" data-id="contagem-tosse">
+        <div class="card-title">Contagem Tosse</div>
+        <div class="icon-bubble">📈</div>
+        <p>Sensor MAX 9814</p>
+        <div class="card-value">-- <span>nível</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+
+      <div class ="card" data-id="umidade">
+        <div class="card-title">Umidade do Ar</div>
+        <div class="icon-bubble">💧</div>
+        <p>Sensor de umidade do ar</p>
+        <div class="card-value">-- <span>nível</span></div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+
+      <div class="card" data-id="acelerometro-x"> 
+        <div class="card-title">Acelerômetro</div>
+        <div class="icon-bubble">🔄</div>
+        <p>Aceleração nos eixos X, Y e Z</p>
+        <div class="card-value multi-value">
+          <div data-id="acelerometro-x"><span>X:</span> -- <span>m/s²</span></div>
+          <div data-id="acelerometro-y"><span>Y:</span> -- <span>m/s²</span></div>
+          <div data-id="acelerometro-z"><span>Z:</span> -- <span>m/s²</span></div>
+        </div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+
+      <div class="card" data-id="giroscopio-x">
+        <div class="card-title">Giroscópio</div>
+        <div class="icon-bubble">🌀</div> 
+        <p>Rotação nos eixos X, Y e Z</p>
+        <div class="card-value multi-value">
+          <div data-id="giroscopio-x"><span>X:</span> -- <span>m/s²</span></div>
+          <div data-id="giroscopio-y"><span>Y:</span> -- <span>m/s²</span></div>
+          <div data-id="giroscopio-z"><span>Z:</span> -- <span>m/s²</span></div>
+        </div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>
+
+
+    </div>
+  </main>
+
+  <!-- Script de inicialização do Painel -->
+  <script src="{{ url_for('static', filename='js/sensores.js') }}"></script>
+
+</body>
+</html>

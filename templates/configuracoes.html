@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* Body e Layout */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+    }
+    main {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(100vh - 60px);
+      padding: 20px;
+    }
+    /* Card do usuário */
+    .user-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 30px 40px;
+      max-width: 400px;
+      width: 100%;
+    }
+    /* Título */
+    .user-card h2 {
+      margin-bottom: 20px;
+      font-size: 1.5rem;
+      text-align: center;
+      color: #444;
+    }
+    /* Campos */
+    .field {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 15px;
+    }
+    .field label {
+      margin-bottom: 5px;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .field input,
+    .field select {
+      padding: 10px 12px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      transition: border-color 0.2s;
+    }
+    .field input:focus,
+    .field select:focus {
+      outline: none;
+      border-color: #6e8efb;
+    }
+    /* Botões */
+    .actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+    .actions button {
+      flex: 1;
+      padding: 10px 15px;
+      margin: 0 5px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    #btnSave {
+      background: #6e8efb;
+      color: #fff;
+    }
+    #btnLogout {
+      background: #c00000;
+      color: #ffffff;
+    }
+    .actions button:hover {
+      transform: translateY(-1px);
+    }
+    #btnSave:hover {
+      background: #5a75d1;
+    }
+    #btnLogout:hover {
+      background: #ff0000;
+    }
+    /* Mensagem de boas-vindas */
+    #welcome {
+      text-align: center;
+      margin-bottom: 20px;
+      font-size: 1rem;
+      color: #000000;
+    }
+    /* Ocultar botão de sair inicialmente */
+    #btnLogout {
+      display: none;
+    }
+
+    @media (max-width: 500px) {
+      .user-card {
+        padding: 20px;
+      }
+      .actions {
+        flex-direction: column;
+      }
+      .actions button {
+        margin: 5px 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Barra de Navegação -->
+  <nav class="navbar">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/Logo.jpg') }}" alt="Logo" width="40" height="40">
+      <span>TCC Asmatic</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="/">Painel</a></li>
+      <li><a href="/sensores">Sensores</a></li>
+      <li><a href="/configuracoes" class="active">Assistente IA</a></li>
+      <li><a href="/insights">Insights</a></li>
+      <li><a href="/chat">Configurações</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <div class="user-card">
+      <!-- Mensagem de boas-vindas (exibida após login) -->
+      <div id="welcome"></div>
+
+      <!-- Formulário de login -->
+<form method="POST" action="{{ url_for('configuracoes.configuracoes') }}">
+  <h2>Entrar como Usuário</h2>
+
+  <div class="field">
+    <label for="username">Nome</label>
+    <input 
+      type="text" 
+      id="username" 
+      name="username" 
+      placeholder="Seu nome" 
+      value="{{ session.get('username', '') }}" 
+      required 
+    />
+  </div>
+
+  <div class="field">
+    <label for="age">Idade</label>
+    <input 
+      type="number" 
+      id="age" 
+      name="age" 
+      placeholder="Sua idade" 
+      min="1" 
+      value="{{ session.get('age', '') }}" 
+      required 
+    />
+  </div>
+
+    <div class="field">
+    <label for="altura">Altura</label>
+    <input 
+      type="number" 
+      id="altura" 
+      name="altura" 
+      placeholder="Sua altura em cm" 
+      min="1" 
+      value="{{ session.get('altura', '') }}" 
+      required 
+    />
+  </div>
+
+  <div class="field">
+    <label for="gender">Gênero</label>
+    <select id="gender" name="gender" required>
+      <option value="" disabled {% if not session.get('gender') %}selected{% endif %}>Selecione</option>
+      <option value="Masculino" {% if session.get('gender') == "Masculino" %}selected{% endif %}>Masculino</option>
+      <option value="Feminino" {% if session.get('gender') == "Feminino" %}selected{% endif %}>Feminino</option>
+      <option value="Outro" {% if session.get('gender') == "Outro" %}selected{% endif %}>Outro</option>
+    </select>
+  </div>
+
+  <div class="actions">
+    {# Sempre exibe “Salvar”, para permitir atualização a qualquer momento #}
+    <button type="submit" id="btnSave">Salvar</button>
+
+{% if session.get('username') %}
+    <a href="{{ url_for('configuracoes.logout') }}" class="btn btn-danger">Sair</a>
+{% endif %}
+  </div>
+</form>
+
+
+    </div>
+  </main>
+
+</body>
+</html>
