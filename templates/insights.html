@@ -6,137 +6,48 @@
   <title>Insights Respiratórios</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script> <!-- Opcional, mas bom para eixos de tempo -->
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 </head>
-
 <style>
-.breathing-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  margin: 2rem auto;
-  max-width: 400px;
-}
-
-#breathingCircle {
-  width: 150px;
-  height: 150px;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 3s ease-in-out;
-
-}
-
-.circle-bg {
-  fill: none;
-  stroke: #d0e7ff;
-  stroke-width: 8;
-}
-
-.circle-progress {
-  fill: none;
-  stroke: #4facfe;
-  stroke-width: 8;
-  stroke-linecap: round;
-  transform: rotate(-90deg);
-  transform-origin: 50% 50%;
-  transition: stroke-dashoffset 0.3s linear;
-}
-
-#breathingText {
-  font-size: 1.2rem;
-  font-weight: 500;
-  color: #333;
-  text-align: center;
-  position: absolute;
-}
-
-#startGameBtn {
-  background: #4facfe;
-  color: #fff;
-  border: none;
-  padding: 12px 24px;
-  font-size: 1rem;
-  font-weight: 600;
-  border-radius: 12px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  transition: all 0.3s ease;
-}
-
-#startGameBtn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-}
-
-.charts-section {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin: 2rem 0;
-  overflow: hidden;
-}
-
-.charts-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f5f5f5;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-}
-
-.charts-header h3 {
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.toggle-charts-btn {
-  background: none;
-  border: none;
-  font-size: 1rem;
-  transform: rotate(0deg);
-  transition: transform 0.3s ease;
-}
-
-.charts-section.collapsed .toggle-charts-btn {
-  transform: rotate(180deg);
-}
-
-/* Quando estiver colapsado, esconde os gráficos */
-.charts-section.collapsed .insights-container {
-  display: none;
-}
-
-@media (min-width: 600px) {
-  .breathing-container {
-    flex-direction: row;
+  /* Adicione estes estilos ao seu CSS principal ou mantenha aqui */
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
   }
-}
+  .result-card {
+    background: #f9f9f9;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    border: 1px solid #eee;
+  }
+  .result-card .value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #4facfe;
+    margin: 0;
+  }
+  .result-card .label {
+    font-size: 0.9rem;
+    color: #666;
+    margin: 0.25rem 0 0;
+  }
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+  }
+  .insights-container .card {
+     width: 100%;
+  }
 
-#downloadContainer a.download-btn {
-  display: inline-block;
-  margin-top: 16px;
-  padding: 10px 20px;
-  background-color: #0077cc;
-  color: white;
-  font-weight: bold;
-  border-radius: 8px;
-  text-decoration: none;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-  transition: background-color 0.3s ease;
-}
-
-#downloadContainer a.download-btn:hover {
-  background-color: #005fa3;
-}
-
+  /* Outros estilos do seu arquivo original... */
+  .breathing-container{display:flex;flex-direction:column;align-items:center;gap:1rem;margin:2rem auto;max-width:400px}#breathingCircle{width:150px;height:150px;position:relative;display:flex;align-items:center;justify-content:center;transition:transform 3s ease-in-out}.circle-bg{fill:none;stroke:#d0e7ff;stroke-width:8}.circle-progress{fill:none;stroke:#4facfe;stroke-width:8;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .3s linear}#breathingText{font-size:1.2rem;font-weight:500;color:#333;text-align:center;position:absolute}#startGameBtn{background:#4facfe;color:#fff;border:none;padding:12px 24px;font-size:1rem;font-weight:600;border-radius:12px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:all .3s ease}#startGameBtn:active{transform:translateY(0);box-shadow:0 2px 6px rgba(0,0,0,.2)}.charts-section{border:1px solid #ddd;border-radius:8px;margin:2rem 0;overflow:hidden}.charts-header{display:flex;justify-content:space-between;align-items:center;background:#f5f5f5;padding:.75rem 1rem;cursor:pointer}.charts-header h3{margin:0;font-size:1.25rem}.toggle-charts-btn{background:none;border:none;font-size:1rem;transform:rotate(0deg);transition:transform .3s ease}.charts-section.collapsed .toggle-charts-btn{transform:rotate(180deg)}.charts-section.collapsed .insights-container{display:none}@media (min-width:600px){.breathing-container{flex-direction:row}}#downloadContainer a.download-btn{display:inline-block;margin-top:16px;padding:10px 20px;background-color:#0077cc;color:#fff;font-weight:700;border-radius:8px;text-decoration:none;box-shadow:0 4px 6px rgba(0,0,0,.2);transition:background-color .3s ease}#downloadContainer a.download-btn:hover{background-color:#005fa3}
 </style>
-
 <body>
   <nav class="navbar">
     <div class="logo">
@@ -154,24 +65,13 @@
 
   <main id="root">
     <div class="main-content">
-      <h2 class="section-title">Machine Learning em Saúde Respiratória</h2>
-      <p class="subtitle">Análises, métodos e previsões baseadas nos seus dados.</p>
+      <h2 class="section-title">Análise Detalhada da Saúde Respiratória</h2>
+      <p class="subtitle">Resultados calculados a partir dos dados brutos dos sensores.</p>
 
-    <!-- Gráficos para paciente -->
-    <section class="charts-section">
-      <header class="charts-header">
-        <h3>Gráficos para Paciente</h3>
-          <button class="toggle-charts-btn" aria-expanded="true">
-            <svg class="icon" width="20" height="20" viewBox="0 0 24 24">
-              <path d="M12 15.5l-7-7 1.4-1.4L12 12.7l5.6-5.6L19 8.5z" fill="currentColor"/>
-            </svg>
-          </button>
-      </header>
-      <div class="insights-container">
-        <!-- cards injetados via JS -->
-      </div>
-    </section>
-
+      <!-- NOVO: Seção para Resultados da Análise -->
+      <section id="analysisResults" class="results-grid">
+        <!-- Cards de resultado serão injetados aqui pelo JS -->
+      </section>
 
       <!-- Gatilhos atuais -->
       <section class="triggers">
@@ -181,36 +81,60 @@
         </ul>
       </section>
 
+      <!-- Gráficos para Paciente (agora com canvases definidos) -->
+      <section class="charts-section">
+        <header class="charts-header">
+          <h3>Gráficos da Análise de Sinais</h3>
+            <button class="toggle-charts-btn" aria-expanded="true">
+              <svg class="icon" width="20" height="20" viewBox="0 0 24 24"><path d="M12 15.5l-7-7 1.4-1.4L12 12.7l5.6-5.6L19 8.5z" fill="currentColor"/></svg>
+            </button>
+        </header>
+        <div class="insights-container charts-grid">
+            <div class="card">
+                <h3>Sinal PPG e Batimentos Cardíacos</h3>
+                <canvas id="ppgChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Sinal Respiratório</h3>
+                <canvas id="respirationChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Análise de Som (Microfone)</h3>
+                <canvas id="soundChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Análise de Movimento (Acelerômetro)</h3>
+                <canvas id="motionChart"></canvas>
+            </div>
+        </div>
+      </section>
+
+      <!-- Seção do Exercício de Respiração -->
       <section class="minigame">
         <h3>Exercícios de Respiração - Box Breathing</h3>
         <div class="breathing-container">
           <div id="breathingCircle">
-            <svg width="150" height="150">
-              <circle class="circle-bg" cx="75" cy="75" r="65"></circle>
-              <circle class="circle-progress" cx="75" cy="75" r="65"></circle>
-            </svg>
+            <svg width="150" height="150"><circle class="circle-bg" cx="75" cy="75" r="65"></circle><circle class="circle-progress" cx="75" cy="75" r="65"></circle></svg>
             <div id="breathingText">Pronto?</div>
           </div>
           <button id="startGameBtn">Iniciar Exercício</button>
-          <div id="downloadContainer"></div> <!-- Área para botão de download -->
+          <div id="downloadContainer"></div>
         </div>
+      </section>
 
-      <!-- Calendário de uso da bombinha -->
+      <!-- Calendário -->
       <section class="calendar">
         <h3>Registro de Uso da Bombinha</h3>
         <div id='inhalerCalendar'></div>
       </section>
-
     </div>
   </main>
 
   <!-- Dados injetados pelo Flask -->
   <script type="text/javascript">
-    window.ml_data = {{ ml_data | tojson | safe }};
     window.env_data = {{ env_data | tojson | safe }};
     window.usage_events = {{ usage_events | tojson | safe }};
   </script>
   <script src="{{ url_for('static', filename='js/insights.js') }}"></script>
-
 </body>
 </html>

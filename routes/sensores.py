@@ -114,7 +114,7 @@ def salvar_dados_csv():
             print("Dados salvos no CSV.")
         except Exception as e:
             print(f"Erro ao salvar CSV: {e}")
-        time.sleep(300)
+        time.sleep(10)
 
 def start_mqtt():
     client = mqtt.Client()

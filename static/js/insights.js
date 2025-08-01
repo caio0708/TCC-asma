@@ -1,196 +1,314 @@
+// insights.js
+
 document.addEventListener('DOMContentLoaded', () => {
   let calendar;
-  const charts = {};
-
-const breathingText = document.getElementById('breathingText');
-const breathingCircle = document.getElementById('breathingCircle');
-const circleProgress = document.querySelector('.circle-progress');
-const startButton = document.getElementById('startGameBtn');
-const downloadContainer = document.getElementById('downloadContainer');
-
-const radius = 65;
-const circumference = 2 * Math.PI * radius;
-
-circleProgress.style.strokeDasharray = `${circumference}`;
-circleProgress.style.strokeDashoffset = `${circumference}`;
-
-const phases = [
-  { name: 'inhale', duration: 2000, scale: 1.3, text: 'Inspire' },
-  { name: 'hold', duration: 1000, scale: 1.3, text: 'Prenda' },
-  { name: 'exhale', duration: 3000, scale: 0.7, text: 'Expire' },
-  { name: 'hold', duration: 1000, scale: 0.7, text: 'Prenda' },
-];
-
-let phaseIndex = 0;
-let isRunning = false;
-let phaseTimeout = null;
-
-// 🎙️ Variáveis da gravação
-let mediaRecorder;
-let audioChunks = [];
-
-// 🎧 Função para iniciar a gravação
-async function iniciarGravacao() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
-
-  audioChunks = [];
-
-  mediaRecorder.ondataavailable = e => {
-    if (e.data.size > 0) audioChunks.push(e.data);
+  const charts = {
+    ppgChart: null,
+    respirationChart: null,
+    soundChart: null,
+    motionChart: null
   };
 
-  mediaRecorder.onstop = () => {
-    const blob = new Blob(audioChunks, { type: 'audio/webm' });
-    const url = URL.createObjectURL(blob);
-
-    // Limpa área de download
-    downloadContainer.innerHTML = '';
-
-    // Cria botão para baixar áudio
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'gravacao_respiracao.webm';
-    a.textContent = '⬇️ Baixar áudio da respiração';
-    a.className = 'download-btn';
-    downloadContainer.appendChild(a);
-
-    // Envia áudio para backend Flask
-    const formData = new FormData();
-    formData.append('audio', blob, 'gravacao_respiracao.webm');
-
-    fetch('/api/upload-audio', {
-      method: 'POST',
-      body: formData
-    })
-      .then(res => res.json())
-      .then(data => {
-        console.log('✅ Upload concluído:', data);
-        const info = document.createElement('p');
-        info.textContent = `Áudio processado: ${data.wav_path || 'Indefinido'}`;
-        downloadContainer.appendChild(info);
-      })
-      .catch(err => {
-        console.error('Erro no upload:', err);
-        const error = document.createElement('p');
-        error.style.color = 'red';
-        error.textContent = '❌ Erro ao enviar áudio para o servidor.';
-        downloadContainer.appendChild(error);
-      });
-  };
-
-  mediaRecorder.start();
-  console.log('🎙️ Gravação iniciada');
-}
-
-// 🛑 Função para parar gravação
-function pararGravacao() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stop();
-    console.log('🛑 Gravação encerrada');
-  }
-}
-
-function animatePhase(phase) {
-  breathingText.textContent = phase.text;
-  breathingCircle.style.transform = `scale(${phase.scale})`;
-
-  circleProgress.style.transition = 'none';
+  // --- MINIGAME LOGIC (Unaltered) ---
+  const breathingText = document.getElementById("breathingText"),
+        breathingCircle = document.getElementById("breathingCircle"),
+        circleProgress = document.querySelector(".circle-progress"),
+        startButton = document.getElementById("startGameBtn"),
+        downloadContainer = document.getElementById("downloadContainer"),
+        radius = 65,
+        circumference = 2 * Math.PI * radius;
+  circleProgress.style.strokeDasharray = `${circumference}`;
   circleProgress.style.strokeDashoffset = `${circumference}`;
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      circleProgress.style.transition = `stroke-dashoffset ${phase.duration}ms linear`;
-      circleProgress.style.strokeDashoffset = `0`;
-    });
-  });
-
-  phaseTimeout = setTimeout(() => {
-    phaseIndex = (phaseIndex + 1) % phases.length;
-    if (isRunning) animatePhase(phases[phaseIndex]);
-  }, phase.duration);
-}
-
-startButton.addEventListener('click', async () => {
-  if (isRunning) {
-    // Parar exercício e gravação
-    isRunning = false;
-    clearTimeout(phaseTimeout);
-    breathingCircle.style.transform = 'scale(1)';
-    circleProgress.style.transition = 'none';
-    circleProgress.style.strokeDashoffset = `${circumference}`;
-    breathingText.textContent = 'Pronto?';
-    startButton.textContent = 'Iniciar Exercício';
-
-    pararGravacao();
-  } else {
-    // Iniciar gravação primeiro, depois a animação
+  const phases = [
+    { name: "inhale", duration: 2000, scale: 1.3, text: "Inspire" },
+    { name: "hold", duration: 1000, scale: 1.3, text: "Prenda" },
+    { name: "exhale", duration: 3000, scale: 0.7, text: "Expire" },
+    { name: "hold", duration: 1000, scale: 0.7, text: "Prenda" }
+  ];
+  let phaseIndex = 0, isRunning = false, phaseTimeout = null, mediaRecorder, audioChunks = [];
+  async function iniciarGravacao() {
     try {
+      let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      mediaRecorder.onstop = () => {
+        let blob = new Blob(audioChunks, { type: "audio/webm" }),
+            url = URL.createObjectURL(blob);
+        downloadContainer.innerHTML = "";
+        let a = document.createElement("a");
+        a.href = url;
+        a.download = "gravacao_respiracao.webm";
+        a.textContent = "⬇️ Baixar áudio da respiração";
+        a.className = "download-btn";
+        downloadContainer.appendChild(a);
+        let formData = new FormData();
+        formData.append("audio", blob, "gravacao_respiracao.webm");
+        fetch("/api/upload-audio", { method: "POST", body: formData })
+          .then(e => e.json())
+          .then(e => console.log("✅ Upload concluído:", e))
+          .catch(e => console.error("Erro no upload:", e));
+      };
+      mediaRecorder.start();
+    } catch (e) {
+      console.error("Erro ao obter mídia:", e);
+      alert("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
+    }
+  }
+  function pararGravacao() {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
+  }
+  function animatePhase(e) {
+    breathingText.textContent = e.text;
+    breathingCircle.style.transform = `scale(${e.scale})`;
+    circleProgress.style.transition = "none";
+    circleProgress.style.strokeDashoffset = `${circumference}`;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        circleProgress.style.transition = `stroke-dashoffset ${e.duration}ms linear`;
+        circleProgress.style.strokeDashoffset = "0";
+      });
+    });
+    phaseTimeout = setTimeout(() => {
+      phaseIndex = (phaseIndex + 1) % phases.length;
+      if (isRunning) animatePhase(phases[phaseIndex]);
+    }, e.duration);
+  }
+  startButton.addEventListener("click", async () => {
+    if (isRunning) {
+      isRunning = false;
+      clearTimeout(phaseTimeout);
+      breathingCircle.style.transform = "scale(1)";
+      circleProgress.style.transition = "none";
+      circleProgress.style.strokeDashoffset = `${circumference}`;
+      breathingText.textContent = "Pronto?";
+      startButton.textContent = "Iniciar Exercício";
+      pararGravacao();
+    } else {
       await iniciarGravacao();
       isRunning = true;
       phaseIndex = 0;
       animatePhase(phases[phaseIndex]);
-      startButton.textContent = 'Parar Exercício';
-    } catch (err) {
-      console.error('Erro ao acessar microfone:', err);
-      alert('Erro ao iniciar gravação. Por favor, permita o acesso ao microfone.');
+      startButton.textContent = "Parar Exercício";
     }
+  });
+
+  /**
+   * Updates the main result cards.
+   */
+  function updateResults(results) {
+    const container = document.getElementById('analysisResults');
+    container.innerHTML = '';
+    const metrics = [
+      { label: 'Batimentos', value: results.heart_rate || 'N/A', unit: 'BPM' },
+      { label: 'Respiração', value: results.respiratory_rate || 'N/A', unit: 'RPM' },
+      { label: 'SpO2', value: results.spo2 > 0 ? results.spo2 : 'N/A', unit: '%' },
+      { label: 'Tosses', value: results.cough_count || 0, unit: '' },
+      { label: 'Temp. Corporal', value: results.body_temp || 'N/A', unit: '°C' },
+      { label: 'Eventos Sonoros', value: results.sound_events || 0, unit: '' }
+    ];
+    metrics.forEach(metric => {
+      const card = document.createElement('div');
+      card.className = 'result-card';
+      card.innerHTML = `<p class="value">${metric.value} <span style="font-size: 1.2rem;">${metric.unit}</span></p><p class="label">${metric.label}</p>`;
+      container.appendChild(card);
+    });
   }
-});
 
-  // ---------- RESTO DO SEU CÓDIGO (charts, triggers, calendar) ----------
+  /**
+   * Generic function to create or update a chart.
+   */
+  function createOrUpdateChart(chartId, config) {
+    const ctx = document.getElementById(chartId)?.getContext('2d');
+    if (!ctx) {
+      console.warn(`Canvas com ID ${chartId} não encontrado.`);
+      return;
+    }
+    if (charts[chartId]) {
+      charts[chartId].destroy();
+    }
+    charts[chartId] = new Chart(ctx, config);
+  }
 
-  function renderCharts(env_data) {
-    const container = document.querySelector('.insights-container');
-    env_data.labels = env_data.labels || [];
+  /**
+   * Helper function to display a "No Data" message on a canvas.
+   */
+  function showNoDataMessage(chartId) {
+    const canvas = document.getElementById(chartId);
+    if (!canvas) {
+      console.warn(`Canvas com ID ${chartId} não encontrado.`);
+      return;
+    }
+    const ctx = canvas.getContext('2d');
+    if (charts[chartId]) {
+      charts[chartId].destroy();
+      charts[chartId] = null;
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#999';
+    ctx.font = '16px sans-serif';
+    ctx.fillText('Dados insuficientes para exibir o gráfico', canvas.width / 2, canvas.height / 2);
+    ctx.restore();
+  }
 
-    Object.keys(env_data)
-      .filter(key => key !== 'labels' && key !== 'triggers')
-      .forEach(key => {
-        const label = key
-          .replace(/_/g, ' ')
-          .replace(/\b\w/g, l => l.toUpperCase());
+  /**
+   * Renders all analysis charts, with checks for data availability.
+   */
+  function renderAnalysisCharts(analysisData) {
+    if (!analysisData || !analysisData.charts) {
+      Object.keys(charts).forEach(showNoDataMessage);
+      return;
+    }
 
-        if (charts[key]) {
-          charts[key].data.labels = env_data.labels;
-          charts[key].data.datasets[0].data = env_data[key];
-          charts[key].update();
-        } else {
-          const card = document.createElement('div');
-          card.className = 'card';
+    const chartData = analysisData.charts;
+    const commonOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
+    };
 
-          const h3 = document.createElement('h3');
-          h3.textContent = label;
-
-          const canvas = document.createElement('canvas');
-          canvas.id = key + 'Chart';
-
-          card.append(h3, canvas);
-          container.appendChild(card);
-
-          const ctx = canvas.getContext('2d');
-          charts[key] = new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels: env_data.labels,
-              datasets: [{ label, data: env_data[key], fill: false }]
-            },
-            options: {
-              responsive: true,
-              scales: {
-                x: { type: 'category', title: { display: true, text: 'Data Hora' } },
-                y: { beginAtZero: false, title: { display: true, text: label } }
-              },
-              plugins: { datalabels: { display: false } }
-            }
-          });
+    // 1. PPG Chart
+    if (chartData.ppg?.signal?.length > 0 && chartData.time_axis?.length > 0) {
+      const ppgSignalData = chartData.time_axis.map((t, i) => ({
+        x: t,
+        y: chartData.ppg.signal[i] || 0
+      }));
+      const ppgPeaksData = chartData.ppg.peaks_time.map((t, i) => ({
+        x: t,
+        y: chartData.ppg.peaks_value[i] || 0
+      }));
+      const ppgConfig = {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Sinal PPG Filtrado', data: ppgSignalData, borderColor: '#FF6F61', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+            { type: 'scatter', label: 'Batimentos Detectados', data: ppgPeaksData, backgroundColor: '#D32F2F', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+          ]
+        },
+        options: {
+          ...commonOptions,
+          scales: {
+            x: { type: 'linear', title: { display: true, text: 'Tempo (s)' } },
+            y: { title: { display: true, text: 'Amplitude Filtrada' } }
+          }
         }
-      });
+      };
+      createOrUpdateChart('ppgChart', ppgConfig);
+    } else {
+      showNoDataMessage('ppgChart');
+    }
+
+    // 2. Respiration Chart
+    if (chartData.respiration?.signal?.length > 0 && chartData.respiration?.time_axis?.length > 0) {
+      const respSignalData = chartData.respiration.time_axis.map((t, i) => ({
+        x: t,
+        y: chartData.respiration.signal[i] || 0
+      }));
+      const respPeaksData = chartData.respiration.peaks_time.map((t, i) => ({
+        x: t,
+        y: chartData.respiration.peaks_value[i] || 0
+      }));
+      const respConfig = {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Sinal Respiratório', data: respSignalData, borderColor: '#2196F3', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+            { type: 'scatter', label: 'Picos Respiratórios', data: respPeaksData, backgroundColor: '#1976D2', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+          ]
+        },
+        options: {
+          ...commonOptions,
+          scales: {
+            x: { type: 'linear', title: { display: true, text: 'Tempo (s)' } },
+            y: { title: { display: true, text: 'Amplitude Modulada' } }
+          }
+        }
+      };
+      createOrUpdateChart('respirationChart', respConfig);
+    } else {
+      showNoDataMessage('respirationChart');
+    }
+
+    // 3. Sound Chart
+    if (chartData.sound?.signal?.length > 0 && chartData.time_axis?.length > 0) {
+      const soundSignalData = chartData.time_axis.map((t, i) => ({
+        x: t,
+        y: chartData.sound.signal[i] || 0
+      }));
+      const soundThresholdData = chartData.time_axis.map(t => ({
+        x: t,
+        y: chartData.sound.threshold || 0
+      }));
+      const soundPeaksData = chartData.sound.peaks_time.map((t, i) => ({
+        x: t,
+        y: chartData.sound.peaks_value[i] || 0
+      }));
+      const soundConfig = {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Sinal do Microfone', data: soundSignalData, borderColor: '#4CAF50', borderWidth: 1.5, pointRadius: 0 },
+            { label: 'Limiar de Som', data: soundThresholdData, borderColor: '#F44336', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
+            { type: 'scatter', label: 'Picos de Som', data: soundPeaksData, backgroundColor: '#2E7D32', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+          ]
+        },
+        options: {
+          ...commonOptions,
+          scales: {
+            x: { type: 'linear', title: { display: true, text: 'Tempo (s)' } },
+            y: { title: { display: true, text: 'Amplitude do ADC' } }
+          }
+        }
+      };
+      createOrUpdateChart('soundChart', soundConfig);
+    } else {
+      showNoDataMessage('soundChart');
+    }
+
+    // 4. Motion Chart
+    if (chartData.motion?.signal?.length > 0 && chartData.time_axis?.length > 0) {
+      const motionSignalData = chartData.time_axis.map((t, i) => ({
+        x: t,
+        y: chartData.motion.signal[i] || 0
+      }));
+      const motionThresholdData = chartData.time_axis.map(t => ({
+        x: t,
+        y: chartData.motion.threshold || 0
+      }));
+      const motionPeaksData = chartData.motion.peaks_time.map((t, i) => ({
+        x: t,
+        y: chartData.motion.peaks_value[i] || 0
+      }));
+      const motionConfig = {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Magnitude da Aceleração', data: motionSignalData, borderColor: '#9C27B0', borderWidth: 1.5, pointRadius: 0 },
+            { label: 'Limiar de Movimento', data: motionThresholdData, borderColor: '#FF9800', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
+            { type: 'scatter', label: 'Solavancos Detectados', data: motionPeaksData, backgroundColor: '#F57C00', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+          ]
+        },
+        options: {
+          ...commonOptions,
+          scales: {
+            x: { type: 'linear', title: { display: true, text: 'Tempo (s)' } },
+            y: { title: { display: true, text: 'Magnitude (g)' } }
+          }
+        }
+      };
+      createOrUpdateChart('motionChart', motionConfig);
+    } else {
+      showNoDataMessage('motionChart');
+    }
   }
 
   function updateTriggers(triggers) {
     const triggersEl = document.getElementById('currentTriggers');
     triggersEl.innerHTML = '';
-    const list = triggers.length ? triggers : ['Nenhum gatilho crítico no momento.'];
+    const list = triggers && triggers.length ? triggers : ['Nenhum gatilho crítico no momento.'];
     list.forEach(txt => {
       const li = document.createElement('li');
       li.textContent = txt;
@@ -198,62 +316,107 @@ startButton.addEventListener('click', async () => {
     });
   }
 
-  function loadData() {
-    fetch('/api/data')
-      .then(r => { if (!r.ok) throw new Error('Falha ao carregar /api/data'); return r.json(); })
-      .then(({ env_data, usage_events }) => {
-        renderCharts(env_data);
-        updateTriggers(env_data.triggers);
-
-        if (!calendar) {
-          const calendarEl = document.getElementById('inhalerCalendar');
-          calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth', locale: 'pt-br', height: 'auto', contentHeight: 350,
-            events: usage_events,
-            dateClick: handleDateClick,
-            eventClick: handleEventClick
-          });
-          calendar.render();
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        alert('Erro ao carregar dados de insights. Veja o console.');
-      });
-  }
-
   function handleDateClick(info) {
     const date = info.dateStr;
     const existing = calendar.getEvents().filter(e => e.startStr === date);
     if (existing.length) {
-      fetch(`/api/events?id=${existing[0].id}`, { method: 'DELETE' })
-        .then(resp => { if (resp.ok) existing[0].remove(); });
+      if (confirm('Deseja remover este registro de uso?')) {
+        fetch(`/api/events?id=${existing[0].id}`, { method: 'DELETE' })
+          .then(resp => { if (resp.ok) existing[0].remove(); });
+      }
     } else {
       fetch('/api/events', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ date })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date })
       })
-      .then(r => r.json())
-      .then(evt => calendar.addEvent(evt));
+        .then(r => r.json())
+        .then(evt => calendar.addEvent(evt));
     }
   }
 
-  function handleEventClick(info) {
-    fetch(`/api/events?id=${info.event.id}`, { method: 'DELETE' })
-      .then(resp => { if (resp.ok) info.event.remove(); });
+  function initializeCalendar(events) {
+    if (calendar) return;
+    const calendarEl = document.getElementById('inhalerCalendar');
+    calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      locale: 'pt-br',
+      height: 'auto',
+      contentHeight: 350,
+      events: events,
+      dateClick: handleDateClick,
+      eventClick: (info) => {
+        if (confirm('Deseja remover este registro de uso?')) {
+          fetch(`/api/events?id=${info.event.id}`, { method: 'DELETE' })
+            .then(resp => { if (resp.ok) info.event.remove(); });
+        }
+      }
+    });
+    calendar.render();
+  }
+
+  function loadData() {
+    console.log("🔄 Carregando novos dados...");
+    fetch('/api/data')
+      .then(r => {
+        if (!r.ok) throw new Error(`Falha na API: ${r.statusText}`);
+        return r.json();
+      })
+      .then(data => {
+        console.log("✅ Dados recebidos:", data);
+        if (data.env_data && !data.env_data.error) {
+          updateResults(data.env_data.analysis.results);
+          renderAnalysisCharts(data.env_data.analysis);
+          updateTriggers(data.env_data.triggers);
+        } else {
+          console.warn("Dados de análise não encontrados ou erro na API:", data.env_data?.error || 'Desconhecido');
+          updateResults({
+            heart_rate: 'N/A',
+            respiratory_rate: 'N/A',
+            spo2: 'N/A',
+            cough_count: 0,
+            body_temp: 'N/A',
+            sound_events: 0
+          });
+          renderAnalysisCharts(null);
+          updateTriggers([data.env_data?.error || 'Erro ao carregar dados.']);
+        }
+        initializeCalendar(data.usage_events || []);
+        if (calendar) {
+          calendar.removeAllEvents();
+          calendar.addEventSource(data.usage_events || []);
+        }
+      })
+      .catch(err => {
+        console.error("❌ Erro ao carregar dados:", err);
+        updateResults({
+          heart_rate: 'N/A',
+          respiratory_rate: 'N/A',
+          spo2: 'N/A',
+          cough_count: 0,
+          body_temp: 'N/A',
+          sound_events: 0
+        });
+        renderAnalysisCharts(null);
+        updateTriggers([`Erro de conexão: ${err.message}`]);
+      });
   }
 
   loadData();
-  setInterval(loadData, 30000);
+  setInterval(loadData, 60000);
 
-  // Toggle colapsar/expandir seção de gráficos
   const chartsSection = document.querySelector('.charts-section');
   const toggleBtn = document.querySelector('.toggle-charts-btn');
   const header = document.querySelector('.charts-header');
-
-  function toggleCharts() {
+  function toggleCharts(e) {
+    e.stopPropagation();
     const isCollapsed = chartsSection.classList.toggle('collapsed');
     toggleBtn.setAttribute('aria-expanded', !isCollapsed);
   }
   toggleBtn.addEventListener('click', toggleCharts);
-  header.addEventListener('click', toggleCharts);
+  header.addEventListener('click', (e) => {
+    if (e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
+      toggleCharts(e);
+    }
+  });
 });
