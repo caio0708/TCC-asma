@@ -1,4 +1,6 @@
-from flask import Blueprint, render_template, session, request, redirect, flash, url_for
+# painel.py (CORRIGIDO)
+
+from flask import Blueprint, render_template, session, request, redirect, flash, url_for, jsonify # Adicionar jsonify
 from datetime import datetime, timedelta
 import os
 import csv
@@ -32,7 +34,8 @@ def get_historical_data(all_data, target_labels):
     processed_data = []
     for entry in all_data:
         try:
-            entry_dt = datetime.strptime(f"{entry.get('Data', '')} {entry.get('Hora', '')}", "%Y-%m-%d %H:%M")
+            hora_str = entry.get('Hora', '')[:5]  # Corta segundos
+            entry_dt = datetime.strptime(f"{entry.get('Data', '')} {hora_str}", "%Y-%m-%d %H:%M")
             entry['datetime'] = entry_dt
             processed_data.append(entry)
         except (ValueError, TypeError):
@@ -48,11 +51,12 @@ def get_historical_data(all_data, target_labels):
     data_idx = 0
     for target_dt in target_datetimes:
         last_valid_entry = None
-        # Encontra o último registro válido ANTES do tempo alvo (target_dt)
-        # Esta é uma forma otimizada para não varrer o array inteiro sempre
         temp_idx = data_idx
         while temp_idx < len(sorted_data) and sorted_data[temp_idx]['datetime'] <= target_dt:
             last_valid_entry = sorted_data[temp_idx]
+            # Otimização: Não precisamos recomeçar a busca do início para o próximo target_dt
+            if sorted_data[temp_idx]['datetime'] > (target_dt - timedelta(hours=1)):
+                data_idx = temp_idx
             temp_idx += 1
         
         if last_valid_entry:
@@ -61,6 +65,7 @@ def get_historical_data(all_data, target_labels):
             historical_metrics["humidity"].append(to_float(last_valid_entry.get("umidade")))
             historical_metrics["spo2"].append(to_float(last_valid_entry.get("saturacao")))
         else:
+            # Enviar None (null em JSON) é o correto para o Chart.js
             historical_metrics["body_temp"].append(None)
             historical_metrics["ambient_temp"].append(None)
             historical_metrics["humidity"].append(None)
@@ -68,27 +73,18 @@ def get_historical_data(all_data, target_labels):
             
     return historical_metrics
 
-@painel_bp.route('/')
-def painel():
-    username = session.get('username', 'Visitante')
+def _get_dashboard_data(username='Visitante'):
+    """Função centralizada para buscar todos os dados do painel."""
     hora_atual = datetime.now().strftime("%H:%M")
 
-    # --- FUNÇÕES AUXILIARES ---
     def to_float(value, default=0.0):
-        """Converte um valor para float de forma segura."""
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return default
+        try: return float(value)
+        except (ValueError, TypeError): return default
 
     def format_string(value, precision=1):
-        """Formata um valor numérico como string para exibição."""
-        try:
-            return f"{float(value):.{precision}f}"
-        except (ValueError, TypeError):
-            return str(value)
+        try: return f"{float(value):.{precision}f}"
+        except (ValueError, TypeError): return str(value)
 
-    # --- DADOS DE SENSORES (Fonte única: CSV) ---
     all_sensor_data = read_sensor_data_from_csv(SENSOR_DATA_CSV)
     
     latest_sensor_data = {}
@@ -97,57 +93,45 @@ def painel():
             all_sensor_data.sort(key=lambda x: datetime.strptime(f"{x.get('Data', '')} {x.get('Hora', '')}", "%Y-%m-%d %H:%M"), reverse=True)
             latest_sensor_data = all_sensor_data[0]
         except (ValueError, TypeError, IndexError):
-            print("AVISO: Não foi possível obter o dado mais recente do CSV.")
-            if all_sensor_data:
-                latest_sensor_data = all_sensor_data[-1]
+            latest_sensor_data = all_sensor_data[-1] if all_sensor_data else {}
 
-    # Extrai os valores usando os novos nomes de coluna
-    temperatura_corporal = to_float(latest_sensor_data.get("temperatura-corporal", '0'))
-    temperatura_ambiente = to_float(latest_sensor_data.get("temperatura-ambiente", '0.0'))
-    humidity = to_float(latest_sensor_data.get("umidade", '0'))
-    nivel_oxi = to_float(latest_sensor_data.get("saturacao", '0'))
-    cont_tosse = to_float(latest_sensor_data.get("contagem-tosse", '0'))
-    aqi = to_float(latest_sensor_data.get("qualidade-ar-aqi", '0.0'))
-    pm2_5 = to_float(latest_sensor_data.get("qualidade-ar-pm25", '0.0'))
-    pm10 = to_float(latest_sensor_data.get("qualidade-ar-pm10", '0.0'))
+    temperatura_corporal = to_float(latest_sensor_data.get("temperatura-corporal"))
+    temperatura_ambiente = to_float(latest_sensor_data.get("temperatura-ambiente"))
+    humidity = to_float(latest_sensor_data.get("umidade"))
+    nivel_oxi = to_float(latest_sensor_data.get("saturacao"))
+    cont_tosse = to_float(latest_sensor_data.get("contagem-tosse"))
+    aqi = to_float(latest_sensor_data.get("qualidade-ar-aqi"))
+    pm2_5 = to_float(latest_sensor_data.get("qualidade-ar-pm25"))
+    pm10 = to_float(latest_sensor_data.get("qualidade-ar-pm10"))
 
-    # --- PREDIÇÃO DE CRISE ---
     resultado, acuracia, hora_predicao = 0, 0.0, hora_atual
     try:
         resultado_pred, _, acuracia_pred, _, hora_pred_api = get_user_prediction(username)
         resultado = resultado_pred or 0
         acuracia = float(acuracia_pred) if acuracia_pred else 0.0
         hora_predicao = hora_pred_api if isinstance(hora_pred_api, str) and hora_pred_api else hora_atual
-    except (TypeError, ValueError, Exception) as e:
-        print(f"AVISO: Erro ao obter predição do usuário '{username}': {e}.")
+    except (TypeError, ValueError, Exception):
+        pass # Erros já são logados na função original
 
-    # --- DADOS PARA GRÁFICOS E PAINEL ---
-    now = datetime.now().replace(minute=0, second=0, microsecond=0)
-    labels_for_lookup = [
-        (now - timedelta(hours=i)).strftime("%Y-%m-%d %H:%M")
-        for i in reversed(range(24)) # Gera 24 rótulos, um para cada hora
-    ]
+    # --- DADOS PARA GRÁFICOS (Gerados a cada requisição) ---
+    now = datetime.now().replace(second=0, microsecond=0)
+    # Garante que o último rótulo seja a hora atual (arredondada para cima)
+    if now.minute > 0:
+        now += timedelta(hours=1)
+    now = now.replace(minute=0)
+
+    labels_for_lookup = [(now - timedelta(hours=i)).strftime("%Y-%m-%d %H:%M") for i in reversed(range(24))]
     historical_chart_data = get_historical_data(all_sensor_data, labels_for_lookup)
     historical_chart_data['labels'] = [datetime.strptime(lbl, "%Y-%m-%d %H:%M").strftime("%H:%M") for lbl in labels_for_lookup]
+    
+    # [CORREÇÃO] Removida a lógica que substituía None pelo valor mais recente.
+    # Deixar None é o correto para o Chart.js renderizar os gráficos com falhas nos dados.
 
-    # Substituir None por valores mais recentes disponíveis ou manter None
-    for metric in ["body_temp", "ambient_temp", "humidity", "spo2"]:
-        historical_chart_data[metric] = [
-            x if x is not None else to_float(latest_sensor_data.get({
-                "body_temp": "temperatura-corporal",
-                "ambient_temp": "temperatura-ambiente",
-                "humidity": "umidade",
-                "spo2": "saturacao"
-            }[metric], 0.0)) for x in historical_chart_data.get(metric, [])
-        ]
-
-    # --- DADOS DE QUALIDADE DO AR ---
     air_quality = {
         "labels": ["AQI", "PM2.5", "PM10"],
-        "values": [aqi, pm2_5, pm10]  # Usar valores numéricos diretamente
+        "values": [aqi, pm2_5, pm10]
     }
 
-    # --- RESUMO DIÁRIO PARA OS CARTÕES ---
     daily_summary = [
         {"title": "Temperatura Corporal", "value": format_string(temperatura_corporal, 1), "unit": "°C"},
         {"title": "Temperatura Ambiente", "value": format_string(temperatura_ambiente, 1), "unit": "°C"},
@@ -156,20 +140,40 @@ def painel():
         {"title": "Tosse (dia)", "value": format_string(cont_tosse, 0), "unit": ""}
     ]
 
-    return render_template('painel.html',
-        daily_summary=daily_summary,
-        air_quality=air_quality,
-        historical_chart_data=historical_chart_data,
-        crisesPrediction=resultado,
-        username=username,
-        accuracy=acuracia,
-        hora=hora_predicao,
-    )
+    return {
+        "daily_summary": daily_summary,
+        "air_quality": air_quality,
+        "historical_chart_data": historical_chart_data,
+        "crisesPrediction": resultado,
+        "accuracy": acuracia,
+        "hora": hora_predicao,
+    }
 
+@painel_bp.route('/')
+def painel():
+    """Renderiza a página inicial do painel."""
+    username = session.get('username', 'Visitante')
+    # Obtém todos os dados da função auxiliar
+    context = _get_dashboard_data(username)
+    context['username'] = username
+    
+    return render_template('painel.html', **context)
+
+# [NOVA ROTA] - Endpoint para o JavaScript buscar atualizações
+@painel_bp.route('/data')
+def data():
+    """Fornece os dados do painel em formato JSON para atualizações dinâmicas."""
+    username = session.get('username', 'Visitante')
+    dashboard_data = _get_dashboard_data(username)
+    return jsonify(dashboard_data)
+
+
+# O resto do arquivo (questionario, salvar_sintomas) permanece o mesmo
 @painel_bp.route("/questionario")
 def questionario():
     return render_template("questionario.html")
 
+# ... (código de salvar_sintomas sem alterações) ...
 @painel_bp.route("/salvar_sintomas", methods=["POST"])
 def salvar_sintomas():
     if request.method == 'POST':
@@ -214,5 +218,3 @@ def salvar_sintomas():
             writer.writerow(sintomas_data)
 
         return redirect("/")
-
-
