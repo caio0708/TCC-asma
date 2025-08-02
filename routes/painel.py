@@ -1,6 +1,4 @@
-# painel.py - CORRIGIDO PARA ENVIAR DADOS NUMÉRICOS PARA O GRÁFICO
-
-from flask import Blueprint, render_template, session
+from flask import Blueprint, render_template, session, request, redirect, flash, url_for
 from datetime import datetime, timedelta
 import os
 import csv
@@ -44,24 +42,25 @@ def get_historical_data(all_data, target_labels):
     target_datetimes = [datetime.strptime(label, "%Y-%m-%d %H:%M") for label in target_labels]
     
     def to_float(value):
-        """Converte um valor para float de forma segura, retornando None se inválido."""
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return None
+        try: return float(value)
+        except (ValueError, TypeError): return None
 
+    data_idx = 0
     for target_dt in target_datetimes:
-        # Encontrar a entrada mais recente antes ou no horário-alvo
-        valid_entries = [entry for entry in sorted_data if entry['datetime'] <= target_dt]
-        last_entry = valid_entries[-1] if valid_entries else None
+        last_valid_entry = None
+        # Encontra o último registro válido ANTES do tempo alvo (target_dt)
+        # Esta é uma forma otimizada para não varrer o array inteiro sempre
+        temp_idx = data_idx
+        while temp_idx < len(sorted_data) and sorted_data[temp_idx]['datetime'] <= target_dt:
+            last_valid_entry = sorted_data[temp_idx]
+            temp_idx += 1
         
-        if last_entry:
-            historical_metrics["body_temp"].append(to_float(last_entry.get("temperatura-corporal")))
-            historical_metrics["ambient_temp"].append(to_float(last_entry.get("temperatura-ambiente")))
-            historical_metrics["humidity"].append(to_float(last_entry.get("umidade")))
-            historical_metrics["spo2"].append(to_float(last_entry.get("saturacao")))
+        if last_valid_entry:
+            historical_metrics["body_temp"].append(to_float(last_valid_entry.get("temperatura-corporal")))
+            historical_metrics["ambient_temp"].append(to_float(last_valid_entry.get("temperatura-ambiente")))
+            historical_metrics["humidity"].append(to_float(last_valid_entry.get("umidade")))
+            historical_metrics["spo2"].append(to_float(last_valid_entry.get("saturacao")))
         else:
-            # Se não houver dados, adicionar None para manter o alinhamento
             historical_metrics["body_temp"].append(None)
             historical_metrics["ambient_temp"].append(None)
             historical_metrics["humidity"].append(None)
@@ -123,9 +122,10 @@ def painel():
         print(f"AVISO: Erro ao obter predição do usuário '{username}': {e}.")
 
     # --- DADOS PARA GRÁFICOS E PAINEL ---
+    now = datetime.now().replace(minute=0, second=0, microsecond=0)
     labels_for_lookup = [
-        (datetime.now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=4*i)).strftime("%Y-%m-%d %H:%M")
-        for i in reversed(range(6))
+        (now - timedelta(hours=i)).strftime("%Y-%m-%d %H:%M")
+        for i in reversed(range(24)) # Gera 24 rótulos, um para cada hora
     ]
     historical_chart_data = get_historical_data(all_sensor_data, labels_for_lookup)
     historical_chart_data['labels'] = [datetime.strptime(lbl, "%Y-%m-%d %H:%M").strftime("%H:%M") for lbl in labels_for_lookup]
@@ -166,6 +166,53 @@ def painel():
         hora=hora_predicao,
     )
 
+@painel_bp.route("/questionario")
+def questionario():
+    return render_template("questionario.html")
 
+@painel_bp.route("/salvar_sintomas", methods=["POST"])
+def salvar_sintomas():
+    if request.method == 'POST':
+        if 'username' not in session:
+            flash('Faça login primeiro.', 'warning')
+            return redirect(url_for('configuracoes.configuracoes'))
+
+        data = request.form.get('data') or datetime.now().strftime('%Y-%m-%d')
+        hora = request.form.get('hora') or datetime.now().strftime('%H:%M')
+
+        def sintoma(nome):
+            vals = [int(v) for v in request.form.getlist(nome)]
+            return max(vals) if vals else 0
+
+        # coletar todos os sintomas
+        sintomas_data = [
+            data, hora,
+            sintoma("Tiredness"), sintoma("Dry-Cough"), sintoma("Difficulty-in-Breathing"),
+            sintoma("Sore-Throat"), sintoma("None_Sympton"), sintoma("Pains"),
+            sintoma("Nasal-Congestion"), sintoma("Runny-Nose"), sintoma("None_Experiencing"),
+            # encoding idade e gênero
+            1 if 1 <= session.get('age',0) <= 9 else 0,
+            1 if 10 <= session.get('age',0) <= 19 else 0,
+            1 if 20 <= session.get('age',0) <= 24 else 0,
+            1 if 25 <= session.get('age',0) <= 59 else 0,
+            1 if session.get('age',0) >= 60 else 0,
+            1 if session.get('gender','') == "Feminino" else 0,
+            1 if session.get('gender','') == "Masculino" else 0,
+            session.get('username','')
+        ]
+
+        file_exists = os.path.isfile("dados/sintomas.csv")
+        with open("dados/sintomas.csv", mode="a", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow([
+                    "Data","Hora","Tiredness","Dry-Cough","Difficulty-in-Breathing",
+                    "Sore-Throat","None_Sympton","Pains","Nasal-Congestion",
+                    "Runny-Nose","None_Experiencing","Age_0-9","Age_10-19",
+                    "Age_20-24","Age_25-59","Age_60+","Gender_Female","Gender_Male","Username"
+                ])
+            writer.writerow(sintomas_data)
+
+        return redirect("/")
 
 

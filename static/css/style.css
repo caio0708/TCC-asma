@@ -545,11 +545,7 @@ body {
   font-weight: 500;
 }
 
-.card-value {
-  font-size: 1.4rem;
-  color: var(--secondary-color);
-  font-weight: 600;
-}
+
 
 .card-updated {
   color: var(--text-light-gray);

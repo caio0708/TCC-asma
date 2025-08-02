@@ -56,10 +56,9 @@
         <div class="card" id="card-{{ sensor_id }}">
           <div class="card-title">{{ item.title }}</div>
           
-          {# O valor agora está em um span com ID para o JS encontrar #}
           <div class="card-value">
-            <span id="valor-{{ sensor_id }}">{{ item.value }}</span> 
-            <span class="card-unit">{{ item.unit }}</span>
+            <div id="valor-{{ sensor_id }}">{{ item.value }}</div>
+            <span>{{ item.unit }}</span>
           </div>
 
           {# O status agora tem um ID para o JS encontrar #}
