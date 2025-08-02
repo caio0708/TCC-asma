@@ -94,18 +94,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   /**
-   * Updates the main result cards.
+   * Updates the main result cards with sensor data.
    */
   function updateResults(results) {
     const container = document.getElementById('analysisResults');
     container.innerHTML = '';
     const metrics = [
-      { label: 'Batimentos', value: results.heart_rate || 'N/A', unit: 'BPM' },
-      { label: 'Respiração', value: results.respiratory_rate || 'N/A', unit: 'RPM' },
-      { label: 'SpO2', value: results.spo2 > 0 ? results.spo2 : 'N/A', unit: '%' },
-      { label: 'Tosses', value: results.cough_count || 0, unit: '' },
-      { label: 'Temp. Corporal', value: results.body_temp || 'N/A', unit: '°C' },
-      { label: 'Eventos Sonoros', value: results.sound_events || 0, unit: '' }
+      { label: 'Batimentos Cardíacos', value: results['batimentos-cardiacos'] > 0 ? results['batimentos-cardiacos'].toFixed(1) : 'N/A', unit: 'BPM' },
+      { label: 'Saturação', value: results['saturacao'] > 0 ? results['saturacao'].toFixed(1) : 'N/A', unit: '%' },
+      { label: 'Temperatura Corporal', value: results['temperatura-corporal'] > 0 ? results['temperatura-corporal'].toFixed(2) : 'N/A', unit: '°C' },
+      { label: 'Temperatura Oximetro', value: results['temperatura-oximetro'] > 0 ? results['temperatura-oximetro'].toFixed(2) : 'N/A', unit: '°C' },
+      { label: 'Contagem de Tosse', value: results['contagem-tosse'] >= 0 ? results['contagem-tosse'] : 0, unit: 'no dia' },
     ];
     metrics.forEach(metric => {
       const card = document.createElement('div');
@@ -155,9 +154,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Renders all analysis charts, with checks for data availability.
+   * Renders all analysis charts, with checks for data availability and timestamp.
    */
-  function renderAnalysisCharts(analysisData) {
+  function renderAnalysisCharts(analysisData, timestamp) {
     if (!analysisData || !analysisData.charts) {
       Object.keys(charts).forEach(showNoDataMessage);
       return;
@@ -184,8 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
         type: 'line',
         data: {
           datasets: [
-            { label: 'Sinal PPG Filtrado', data: ppgSignalData, borderColor: '#FF6F61', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
-            { type: 'scatter', label: 'Batimentos Detectados', data: ppgPeaksData, backgroundColor: '#D32F2F', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: `Sinal PPG Filtrado`, data: ppgSignalData, borderColor: '#FF6F61', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+            { type: 'scatter', label: `Batimentos Detectados}`, data: ppgPeaksData, backgroundColor: '#D32F2F', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
           ]
         },
         options: {
@@ -215,8 +214,8 @@ document.addEventListener('DOMContentLoaded', () => {
         type: 'line',
         data: {
           datasets: [
-            { label: 'Sinal Respiratório', data: respSignalData, borderColor: '#2196F3', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
-            { type: 'scatter', label: 'Picos Respiratórios', data: respPeaksData, backgroundColor: '#1976D2', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: `Sinal Respiratório`, data: respSignalData, borderColor: '#2196F3', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+            { type: 'scatter', label: `Picos Respiratórios`, data: respPeaksData, backgroundColor: '#1976D2', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
           ]
         },
         options: {
@@ -250,9 +249,9 @@ document.addEventListener('DOMContentLoaded', () => {
         type: 'line',
         data: {
           datasets: [
-            { label: 'Sinal do Microfone', data: soundSignalData, borderColor: '#4CAF50', borderWidth: 1.5, pointRadius: 0 },
-            { label: 'Limiar de Som', data: soundThresholdData, borderColor: '#F44336', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
-            { type: 'scatter', label: 'Picos de Som', data: soundPeaksData, backgroundColor: '#2E7D32', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: `Sinal do Microfone`, data: soundSignalData, borderColor: '#4CAF50', borderWidth: 1.5, pointRadius: 0 },
+            { label: `Limiar de Som`, data: soundThresholdData, borderColor: '#F44336', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
+            { type: 'scatter', label: `Picos de Som`, data: soundPeaksData, backgroundColor: '#2E7D32', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
           ]
         },
         options: {
@@ -286,9 +285,9 @@ document.addEventListener('DOMContentLoaded', () => {
         type: 'line',
         data: {
           datasets: [
-            { label: 'Magnitude da Aceleração', data: motionSignalData, borderColor: '#9C27B0', borderWidth: 1.5, pointRadius: 0 },
-            { label: 'Limiar de Movimento', data: motionThresholdData, borderColor: '#FF9800', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
-            { type: 'scatter', label: 'Solavancos Detectados', data: motionPeaksData, backgroundColor: '#F57C00', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: `Magnitude da Aceleração`, data: motionSignalData, borderColor: '#9C27B0', borderWidth: 1.5, pointRadius: 0 },
+            { label: `Limiar de Movimento`, data: motionThresholdData, borderColor: '#FF9800', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
+            { type: 'scatter', label: `Solavancos Detectados`, data: motionPeaksData, backgroundColor: '#F57C00', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
           ]
         },
         options: {
@@ -366,19 +365,28 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("✅ Dados recebidos:", data);
         if (data.env_data && !data.env_data.error) {
           updateResults(data.env_data.analysis.results);
-          renderAnalysisCharts(data.env_data.analysis);
+          renderAnalysisCharts(data.env_data.analysis, data.env_data.timestamp);
           updateTriggers(data.env_data.triggers);
         } else {
           console.warn("Dados de análise não encontrados ou erro na API:", data.env_data?.error || 'Desconhecido');
           updateResults({
-            heart_rate: 'N/A',
-            respiratory_rate: 'N/A',
-            spo2: 'N/A',
-            cough_count: 0,
-            body_temp: 'N/A',
-            sound_events: 0
+            'frequencia-respiratoria': 0,
+            'batimentos-cardiacos': 0,
+            'saturacao': 0,
+            'temperatura-corporal': 0,
+            'temperatura-ambiente': 0,
+            'temperatura-oximetro': 0,
+            'movimento-toracico': 0,
+            'contagem-tosse': 0,
+            'umidade': 0,
+            'acelerometro-x': 0,
+            'acelerometro-y': 0,
+            'acelerometro-z': 0,
+            'giroscopio-x': 0,
+            'giroscopio-y': 0,
+            'giroscopio-z': 0
           });
-          renderAnalysisCharts(null);
+          renderAnalysisCharts(null, null);
           updateTriggers([data.env_data?.error || 'Erro ao carregar dados.']);
         }
         initializeCalendar(data.usage_events || []);
@@ -390,21 +398,46 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(err => {
         console.error("❌ Erro ao carregar dados:", err);
         updateResults({
-          heart_rate: 'N/A',
-          respiratory_rate: 'N/A',
-          spo2: 'N/A',
-          cough_count: 0,
-          body_temp: 'N/A',
-          sound_events: 0
+          'frequencia-respiratoria': 0,
+          'batimentos-cardiacos': 0,
+          'saturacao': 0,
+          'temperatura-corporal': 0,
+          'temperatura-ambiente': 0,
+          'temperatura-oximetro': 0,
+          'movimento-toracico': 0,
+          'contagem-tosse': 0,
+          'umidade': 0,
+          'acelerometro-x': 0,
+          'acelerometro-y': 0,
+          'acelerometro-z': 0,
+          'giroscopio-x': 0,
+          'giroscopio-y': 0,
+          'giroscopio-z': 0
         });
-        renderAnalysisCharts(null);
+        renderAnalysisCharts(null, null);
         updateTriggers([`Erro de conexão: ${err.message}`]);
       });
   }
 
-  loadData();
-  setInterval(loadData, 60000);
+  // --- ALTERAÇÃO 1: APLICAR LAYOUT 2x2 AOS GRÁFICOS ---
+  try {
+    const firstChart = document.getElementById('ppgChart');
+    if (firstChart && firstChart.parentElement && firstChart.parentElement.parentElement) {
+      const chartsContainer = firstChart.parentElement.parentElement;
+      chartsContainer.style.display = 'grid';
+      chartsContainer.style.gridTemplateColumns = '1fr 1fr';
+      chartsContainer.style.gap = '20px';
+    }
+  } catch (e) {
+    console.error("Falha ao tentar aplicar o layout de grade aos gráficos.", e);
+  }
 
+  // Inicia o carregamento de dados
+  loadData();
+  // --- ALTERAÇÃO 2: ATUALIZAR DADOS A CADA 5 SEGUNDOS ---
+  setInterval(loadData, 5000);
+
+  // Lógica da seção de gráficos recolhível (sem alteração)
   const chartsSection = document.querySelector('.charts-section');
   const toggleBtn = document.querySelector('.toggle-charts-btn');
   const header = document.querySelector('.charts-header');

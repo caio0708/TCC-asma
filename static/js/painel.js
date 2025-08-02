@@ -158,7 +158,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- CHAMADAS DE ATUALIZAÇÃO ---
-    // Atualiza os GRÁFICOS imediatamente e a cada 30 segundos
+    // Atualiza os GRÁFICOS imediatamente e a cada 10 segundos
     atualizarSensores();
     setInterval(atualizarSensores, 10000);
     

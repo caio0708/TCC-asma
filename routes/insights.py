@@ -10,6 +10,13 @@ import uuid
 import os
 import subprocess
 
+# --- INÍCIO: Adições para dados ao vivo ---
+import threading
+import json
+import paho.mqtt.client as mqtt
+from routes.sensores import SENSORES_PADRAO # Reutiliza a lista padrão
+# --- FIM: Adições para dados ao vivo ---
+
 from scipy.signal import find_peaks, butter, filtfilt
 from scipy.interpolate import interp1d
 from werkzeug.utils import secure_filename
@@ -27,9 +34,67 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # --- CONSTANTES DE ANÁLISE ---
 SAMPLING_RATE = 50  # Hz
-MIN_SAMPLES = 2 * SAMPLING_RATE  # Minimum 2 seconds of data for analysis
+MIN_SAMPLES = 2 * SAMPLING_RATE  # Mínimo de 2 segundos de dados para análise
 
-# --- INÍCIO: NÚCLEO DE ANÁLISE ---
+# --- INÍCIO: LÓGICA DE DADOS AO VIVO (MQTT) ---
+
+live_data_lock = threading.Lock()
+# Inicializa o dicionário de dados ao vivo com a estrutura padrão
+live_sensor_data = {s['id']: s['valor'] for s in SENSORES_PADRAO}
+
+# Configuração MQTT
+BROKER = "broker.hivemq.com"
+PORT = 1883
+TOPIC_ALL = "sensorestcc/+"
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        print("Insights.py | Conectado ao broker MQTT")
+        client.subscribe(TOPIC_ALL)
+    else:
+        print(f"Insights.py | Falha na conexão, código: {rc}")
+
+def on_message(client, userdata, msg):
+    """Callback para atualizar o dicionário de dados ao vivo."""
+    try:
+        sensor_id = msg.topic.split('/')[-1]
+        payload = msg.payload.decode('utf-8')
+        # Tenta decodificar como JSON, se não, trata como valor bruto
+        try:
+            dados = json.loads(payload)
+            valor = dados['valor'] if isinstance(dados, dict) and 'valor' in dados else dados
+        except json.JSONDecodeError:
+            try:
+                valor = float(payload) if '.' in payload else int(payload)
+            except ValueError:
+                valor = payload
+        
+        with live_data_lock:
+            live_sensor_data[sensor_id] = valor
+            # print(f"Insights.py | Atualizado {sensor_id}: {valor}") # Descomente para depuração
+
+    except Exception as e:
+        print(f"Insights.py | Erro ao processar mensagem MQTT: {e}")
+
+def start_mqtt_listener():
+    """Inicia o cliente MQTT em uma thread separada."""
+    client = mqtt.Client()
+    client.on_connect = on_connect
+    client.on_message = on_message
+    try:
+        client.connect(BROKER, PORT, 60)
+        client.loop_forever()
+    except Exception as e:
+        print(f"Insights.py | Erro ao conectar ao broker MQTT: {e}")
+
+# Inicia a thread do MQTT
+mqtt_thread = threading.Thread(target=start_mqtt_listener, daemon=True)
+mqtt_thread.start()
+
+# --- FIM: LÓGICA DE DADOS AO VIVO (MQTT) ---
+
+
+# --- INÍCIO: NÚCLEO DE ANÁLISE (INALERADO) ---
 
 def analyze_ppg_robust(ir_signal, red_signal, fs):
     """Calcula HR, RR e SpO2 a partir de sinais PPG."""
@@ -93,14 +158,13 @@ def analyze_ppg_robust(ir_signal, red_signal, fs):
     return hr, rr, spo2_est, hr_peaks, ir_filtered, respiratory_signal, resp_peaks, resp_time_vector
 
 def analyze_motion(acc_x, acc_y, acc_z):
-    """Calcula a magnitude da aceleração e o nível de atividade."""
+    """Calcula a magnitude da aceleração e o nível de movimento torácico."""
     if len(acc_x) < MIN_SAMPLES or len(acc_y) < MIN_SAMPLES or len(acc_z) < MIN_SAMPLES:
         return np.array([]), 0
 
     magnitude = np.sqrt(acc_x**2 + acc_y**2 + acc_z**2)
-    activity_signal = magnitude - np.mean(magnitude)
-    activity_level = np.std(activity_signal) if len(activity_signal) > 0 else 0
-    return magnitude, activity_level
+    thoracic_movement = np.std(magnitude) if len(magnitude) > 0 else 0
+    return magnitude, thoracic_movement
 
 def find_motion_peaks(motion_magnitude, fs):
     """Detecta picos de movimento (solavancos)."""
@@ -125,10 +189,7 @@ def run_full_analysis(df_raw):
     """
     if len(df_raw) < MIN_SAMPLES:
         return {
-            'results': {
-                'heart_rate': 0, 'respiratory_rate': 0, 'spo2': 0, 'body_temp': 0,
-                'activity_level': 0, 'sound_events': 0, 'motion_events': 0, 'cough_count': 0
-            },
+            'results': {sensor['id']: sensor['valor'] for sensor in SENSORES_PADRAO},
             'charts': {
                 'time_axis': [],
                 'ppg': {'signal': [], 'peaks_time': [], 'peaks_value': []},
@@ -139,21 +200,23 @@ def run_full_analysis(df_raw):
         }
 
     # Extrai dados do DataFrame
-    ir_data = df_raw['batimentos-cardiacos'].to_numpy()
-    red_data = df_raw['saturacao'].to_numpy()
-    mic_data = df_raw['contagem-tosse'].to_numpy()
-    acc_x_data = df_raw['acelerometro-x'].to_numpy()
-    acc_y_data = df_raw['acelerometro-y'].to_numpy()
-    acc_z_data = df_raw['acelerometro-z'].to_numpy()
+    sensor_data = {sensor['id']: df_raw[sensor['id']].to_numpy() if sensor['id'] in df_raw else np.array([]) for sensor in SENSORES_PADRAO}
     fs = SAMPLING_RATE
-    time_axis = (np.arange(len(ir_data)) / fs).tolist()
+    time_axis = (np.arange(len(sensor_data['batimentos-cardiacos'])) / fs).tolist() if len(sensor_data['batimentos-cardiacos']) > 0 else []
 
     # Executa as análises
-    hr, rr, spo2, hr_peaks, ir_filtered, resp_signal, resp_peaks, resp_time_vector = analyze_ppg_robust(ir_data, red_data, fs)
-    sound_peaks, mic_threshold = analyze_sound(mic_data, fs)
-    motion_magnitude, activity = analyze_motion(acc_x_data, acc_y_data, acc_z_data)
+    hr, rr, spo2, hr_peaks, ir_filtered, resp_signal, resp_peaks, resp_time_vector = analyze_ppg_robust(
+        sensor_data['batimentos-cardiacos'], sensor_data['saturacao'], fs
+    )
+    sound_peaks, mic_threshold = analyze_sound(sensor_data['contagem-tosse'], fs)
+    motion_magnitude, thoracic_movement = analyze_motion(
+        sensor_data['acelerometro-x'], sensor_data['acelerometro-y'], sensor_data['acelerometro-z']
+    )
     motion_peaks, motion_threshold = find_motion_peaks(motion_magnitude, fs)
-    avg_body_temp = df_raw['tempBody'].mean() if 'tempBody' in df_raw else 0
+    
+    # Médias para sensores escalares
+    body_temp = df_raw['temperatura-corporal'].mean() if 'temperatura-corporal' in df_raw and not df_raw['temperatura-corporal'].isna().all() else 0
+    oximeter_temp = df_raw['temperatura-oximetro'].mean() if 'temperatura-oximetro' in df_raw and not df_raw['temperatura-oximetro'].isna().all() else 0
 
     # Lógica de correlação para tosse
     cough_count = 0
@@ -166,14 +229,24 @@ def run_full_analysis(df_raw):
 
     # Monta o dicionário de resultados
     results = {
-        'heart_rate': round(float(hr), 1),
-        'respiratory_rate': round(float(rr), 1),
-        'spo2': round(float(spo2), 1),
-        'body_temp': round(float(avg_body_temp), 2) if not np.isnan(avg_body_temp) else 0,
-        'activity_level': round(float(activity), 3),
-        'sound_events': len(sound_peaks),
-        'motion_events': len(motion_peaks),
-        'cough_count': cough_count
+        'frequencia-respiratoria': round(float(rr), 1) if rr > 0 else 0,
+        'batimentos-cardiacos': round(float(hr), 1) if hr > 0 else 0,
+        'saturacao': round(float(spo2), 1) if spo2 > 0 else 0,
+        'temperatura-corporal': round(float(body_temp), 2) if not np.isnan(body_temp) else 0,
+        'temperatura-ambiente': 0,
+        'temperatura-oximetro': round(float(oximeter_temp), 2) if not np.isnan(oximeter_temp) else 0,
+        'qualidade-ar-pm25': 0,
+        'qualidade-ar-pm10': 0,
+        'qualidade-ar-aqi': 0,
+        'movimento-toracico': round(float(thoracic_movement), 3) if thoracic_movement > 0 else 0,
+        'contagem-tosse': cough_count,
+        'umidade': 0,
+        'acelerometro-x': round(float(np.mean(sensor_data['acelerometro-x'])), 3) if len(sensor_data['acelerometro-x']) > 0 else 0,
+        'acelerometro-y': round(float(np.mean(sensor_data['acelerometro-y'])), 3) if len(sensor_data['acelerometro-y']) > 0 else 0,
+        'acelerometro-z': round(float(np.mean(sensor_data['acelerometro-z'])), 3) if len(sensor_data['acelerometro-z']) > 0 else 0,
+        'giroscopio-x': round(float(np.mean(sensor_data['giroscopio-x'])), 3) if len(sensor_data['giroscopio-x']) > 0 else 0,
+        'giroscopio-y': round(float(np.mean(sensor_data['giroscopio-y'])), 3) if len(sensor_data['giroscopio-y']) > 0 else 0,
+        'giroscopio-z': round(float(np.mean(sensor_data['giroscopio-z'])), 3) if len(sensor_data['giroscopio-z']) > 0 else 0
     }
 
     # Monta o dicionário com dados para os gráficos de forma segura
@@ -199,10 +272,10 @@ def run_full_analysis(df_raw):
         'ppg': ppg_chart_data,
         'respiration': resp_chart_data,
         'sound': {
-            'signal': mic_data.tolist() if len(mic_data) > 0 else [],
+            'signal': sensor_data['contagem-tosse'].tolist() if len(sensor_data['contagem-tosse']) > 0 else [],
             'threshold': float(mic_threshold) if mic_threshold is not None else 0,
             'peaks_time': (sound_peaks / fs).tolist() if len(sound_peaks) > 0 else [],
-            'peaks_value': [float(mic_data[i]) for i in sound_peaks if i < len(mic_data)]
+            'peaks_value': [float(sensor_data['contagem-tosse'][i]) for i in sound_peaks if i < len(sensor_data['contagem-tosse'])]
         },
         'motion': {
             'signal': motion_magnitude.tolist() if len(motion_magnitude) > 0 else [],
@@ -216,143 +289,120 @@ def run_full_analysis(df_raw):
 
 # --- FIM: NÚCLEO DE ANÁLISE ---
 
+def get_empty_analysis_data():
+    """Retorna uma estrutura de dados de análise vazia em caso de erro."""
+    return {
+        "analysis": {
+            "results": {sensor['id']: sensor['valor'] for sensor in SENSORES_PADRAO},
+            "charts": {
+                "time_axis": [],
+                "ppg": {"signal": [], "peaks_time": [], "peaks_value": []},
+                "respiration": {"time_axis": [], "signal": [], "peaks_time": [], "peaks_value": []},
+                "sound": {"signal": [], "threshold": 0, "peaks_time": [], "peaks_value": []},
+                "motion": {"signal": [], "threshold": 0, "peaks_time": [], "peaks_value": []}
+            }
+        },
+        "external_data": { "temperatura-ambiente": None, "umidade": None },
+    }
+
+def get_env_data():
+    """
+    Combina análise histórica do CSV (para gráficos) com dados ao vivo do MQTT (para cartões).
+    """
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # 1. Análise Histórica (para Gráficos) a partir do CSV
+    try:
+        # Use o caminho absoluto para evitar problemas com o diretório de trabalho
+        csv_path = r'E:\Dev\TCC-asma\ia\dados\sensores.csv' 
+        df_raw = pd.read_csv(csv_path)
+        df_to_analyze = df_raw.tail(10 * SAMPLING_RATE) # Analisa os últimos 10 segundos
+        
+        if len(df_to_analyze) < MIN_SAMPLES:
+            analysis_data = get_empty_analysis_data()['analysis']
+            triggers = ["Dados insuficientes no CSV para análise completa"]
+        else:
+             # Executar a análise completa dos sinais do CSV
+            analysis_data = run_full_analysis(df_to_analyze)
+            triggers = [] # Será recalculado abaixo
+
+    except FileNotFoundError:
+        return { "error": f"Arquivo '{csv_path}' não encontrado.", "timestamp": timestamp, **get_empty_analysis_data(), "triggers": ["Arquivo de dados CSV não encontrado"] }
+    except Exception as e:
+        return { "error": f"Erro ao ler ou analisar o CSV: {e}", "timestamp": timestamp, **get_empty_analysis_data(), "triggers": [f"Erro no processamento do CSV: {e}"] }
+
+    # 2. Mesclar com Dados ao Vivo (MQTT) para os cartões de resultado
+    res = analysis_data['results']
+    with live_data_lock:
+        # Sobrescreve os valores no dicionário 'results' com os dados mais recentes do MQTT
+        for sensor_id, value in live_sensor_data.items():
+            if sensor_id in res:
+                # Mantém a formatação/tipo original se possível, mas atualiza o valor
+                try:
+                    res[sensor_id] = type(res[sensor_id])(value)
+                except (ValueError, TypeError):
+                    res[sensor_id] = value # Se a conversão falhar, apenas atribui
+
+    # 3. Buscar Dados Externos (API de Clima/Ar)
+    temp, humidity = get_weather(lat, lon)
+    aqi, pm2_5, pm10 = get_air_quality(lat, lon, API_KEY)
+
+    # Atualizar resultados com dados externos
+    res['temperatura-ambiente'] = round(float(temp), 2) if temp is not None else res.get('temperatura-ambiente', 0)
+    res['umidade'] = round(float(humidity), 2) if humidity is not None else res.get('umidade', 0)
+    res['qualidade-ar-aqi'] = int(aqi) if aqi is not None else res.get('qualidade-ar-aqi', 0)
+    res['qualidade-ar-pm25'] = float(pm2_5) if pm2_5 is not None else res.get('qualidade-ar-pm25', 0)
+    res['qualidade-ar-pm10'] = float(pm10) if pm10 is not None else res.get('qualidade-ar-pm10', 0)
+
+    # 4. Definir Gatilhos (triggers) com base nos dados mais recentes (já mesclados)
+    triggers = []
+    if res.get('contagem-tosse', 0) > 3: triggers.append('Tosse Excessiva')
+    if 0 < res.get('saturacao', 100) < 95: triggers.append('Baixa Saturação')
+    if res.get('frequencia-respiratoria', 0) > 25: triggers.append('Respiração Acelerada')
+    if res.get('temperatura-ambiente', 0) > 35: triggers.append('Calor Excessivo')
+    if res.get('temperatura-corporal', 0) > 38: triggers.append('Febre Detectada')
+
+    return {
+        'timestamp': timestamp,
+        'analysis': analysis_data, # Contém 'results' atualizados e 'charts' do CSV
+        'triggers': triggers
+    }
+
+# --- ROTAS FLASK e LÓGICA DE UPLOAD (INALERADAS) ---
+
 def allowed_file(filename):
-    """Verifica se o arquivo tem extensão permitida."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def convert_webm_to_wav(webm_path, wav_path):
-    """Converte arquivo WEBM para WAV usando ffmpeg."""
     try:
-        result = subprocess.run(
-            ['ffmpeg', '-y', '-i', webm_path, wav_path],
-            capture_output=True, text=True, check=True
-        )
+        subprocess.run(['ffmpeg', '-y', '-i', webm_path, wav_path], capture_output=True, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(f'❌ Erro na conversão com ffmpeg: {e.stderr}')
         return False
     except FileNotFoundError:
-        print("❌ Comando 'ffmpeg' não encontrado. Certifique-se de que está instalado e no PATH do sistema.")
+        print("❌ 'ffmpeg' não encontrado. Instale e adicione ao PATH.")
         return False
-    except Exception as e:
-        print(f'❌ Erro inesperado na conversão: {e}')
-        return False
+    return False
 
 def get_ml_data():
-    """Simula dados de treinamento de ML."""
     epochs = list(range(1, 11))
     accuracy = [round(random.uniform(0.7, 1.0), 2) for _ in epochs]
     loss = [round(random.uniform(0.1, 0.5), 2) for _ in epochs]
     return {"epochs": epochs, "accuracy": accuracy, "loss": loss}
 
-def get_env_data():
-    """
-    Lê DADOS BRUTOS, executa a análise completa, busca dados externos
-    e retorna tudo em um formato consolidado para a API.
-    """
-    try:
-        df_raw = pd.read_csv('dados/sensores.csv')
-        df_to_analyze = df_raw.tail(10 * SAMPLING_RATE)
-        if len(df_to_analyze) < MIN_SAMPLES:
-            return {
-                "error": f"Dados insuficientes para análise. Pelo menos {MIN_SAMPLES} amostras (2s) são necessárias.",
-                "analysis": {
-                    "results": {
-                        "heart_rate": 0, "respiratory_rate": 0, "spo2": 0, "body_temp": 0,
-                        "activity_level": 0, "sound_events": 0, "motion_events": 0, "cough_count": 0
-                    },
-                    "charts": {
-                        "time_axis": [],
-                        "ppg": {"signal": [], "peaks_time": [], "peaks_value": []},
-                        "respiration": {"time_axis": [], "signal": [], "peaks_time": [], "peaks_value": []},
-                        "sound": {"signal": [], "threshold": 0, "peaks_time": [], "peaks_value": []},
-                        "motion": {"signal": [], "threshold": 0, "peaks_time": [], "peaks_value": []}
-                    }
-                },
-                "external_data": {"temperature": None, "humidity": None, "aqi": None, "pm2_5": None, "pm10": None},
-                "triggers": ["Dados insuficientes para análise"]
-            }
-    except FileNotFoundError:
-        return {
-            "error": "Arquivo 'dados/raw_sensor_data.csv' não encontrado.",
-            "analysis": {
-                "results": {
-                    "heart_rate": 0, "respiratory_rate": 0, "spo2": 0, "body_temp": 0,
-                    "activity_level": 0, "sound_events": 0, "motion_events": 0, "cough_count": 0
-                },
-                "charts": {
-                    "time_axis": [],
-                    "ppg": {"signal": [], "peaks_time": [], "peaks_value": []},
-                    "respiration": {"time_axis": [], "signal": [], "peaks_time": [], "peaks_value": []},
-                    "sound": {"signal": [], "threshold": 0, "peaks_time": [], "peaks_value": []},
-                    "motion": {"signal": [], "threshold": 0, "peaks_time": [], "peaks_value": []}
-                }
-            },
-            "external_data": {"temperature": None, "humidity": None, "aqi": None, "pm2_5": None, "pm10": None},
-            "triggers": ["Arquivo de dados não encontrado"]
-        }
-    except Exception as e:
-        return {
-            "error": f"Erro ao ler os dados: {e}",
-            "analysis": {
-                "results": {
-                    "heart_rate": 0, "respiratory_rate": 0, "spo2": 0, "body_temp": 0,
-                    "activity_level": 0, "sound_events": 0, "motion_events": 0, "cough_count": 0
-                },
-                "charts": {
-                    "time_axis": [],
-                    "ppg": {"signal": [], "peaks_time": [], "peaks_value": []},
-                    "respiration": {"time_axis": [], "signal": [], "peaks_time": [], "peaks_value": []},
-                    "sound": {"signal": [], "threshold": 0, "peaks_time": [], "peaks_value": []},
-                    "motion": {"signal": [], "threshold": 0, "peaks_time": [], "peaks_value": []}
-                }
-            },
-            "external_data": {"temperature": None, "humidity": None, "aqi": None, "pm2_5": None, "pm10": None},
-            "triggers": [f"Erro ao processar dados: {e}"]
-        }
 
-    # Executar a análise completa dos sinais
-    analysis_data = run_full_analysis(df_to_analyze)
-    res = analysis_data['results']
-
-    # Buscar dados externos
-    temp, humidity = get_weather(lat, lon)
-    aqi, pm2_5, pm10 = get_air_quality(lat, lon, API_KEY)
-
-    # Definir gatilhos (triggers) com base nos resultados da análise
-    triggers = []
-    if pm2_5 and pm2_5 > 35: triggers.append('PM2.5 Alta')
-    if pm10 and pm10 > 50: triggers.append('PM10 Alta')
-    if aqi and aqi > 100: triggers.append('AQI Alto')
-    if res['cough_count'] > 3: triggers.append('Tosse Excessiva')
-    if res['spo2'] > 0 and res['spo2'] < 95: triggers.append('Baixa Saturação')
-    if res['respiratory_rate'] > 25: triggers.append('Respiração Acelerada')
-    if temp and temp > 35: triggers.append('Calor Excessivo')
-
-    return {
-        'analysis': analysis_data,
-        'external_data': {
-            'temperature': temp,
-            'humidity': humidity,
-            'aqi': aqi,
-            'pm2_5': pm2_5,
-            'pm10': pm10
-        },
-        'triggers': triggers
-    }
-
-# Rotas Flask
 @insights_bp.route('/insights')
 def insights():
-    ml_data = get_ml_data()
+    # A chamada inicial carrega os dados
     env_data = get_env_data()
     usage_events = session.get('usage_events', [])
-    return render_template('insights.html', ml_data=ml_data, env_data=env_data, usage_events=usage_events)
+    return render_template('insights.html', env_data=env_data, usage_events=usage_events)
 
 @insights_bp.route('/api/data')
 def api_data():
+    # Esta API agora retorna a combinação de dados de análise + ao vivo
     return jsonify({
-        'ml_data': get_ml_data(),
         'env_data': get_env_data(),
         'usage_events': session.get('usage_events', [])
     })
@@ -377,25 +427,18 @@ def api_events():
 def upload_audio():
     if 'audio' not in request.files:
         return jsonify({'error': 'Arquivo de áudio não enviado'}), 400
-
     file = request.files['audio']
     if not file or not allowed_file(file.filename):
-        return jsonify({'error': 'Extensão de arquivo não permitida ou arquivo inválido'}), 400
-
+        return jsonify({'error': 'Extensão de arquivo não permitida'}), 400
     filename = secure_filename(f"{uuid.uuid4()}.webm")
     webm_path = os.path.join(UPLOAD_FOLDER, filename)
     wav_filename = os.path.splitext(filename)[0] + '.wav'
     wav_path = os.path.join(UPLOAD_FOLDER, wav_filename)
-
     try:
         file.save(webm_path)
     except Exception as e:
         return jsonify({'error': f'Falha ao salvar o arquivo: {e}'}), 500
-
     if convert_webm_to_wav(webm_path, wav_path):
-        return jsonify({
-            'message': 'Áudio salvo e convertido com sucesso',
-            'wav_path': f'/{UPLOAD_FOLDER}/{wav_filename}'
-        }), 200
+        return jsonify({'message': 'Áudio salvo e convertido', 'wav_path': f'/{UPLOAD_FOLDER}/{wav_filename}'}), 200
     else:
         return jsonify({'error': 'Falha na conversão do áudio'}), 500

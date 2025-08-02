@@ -13,7 +13,7 @@ jsonify
 
 # pip install -r requirements.txt
 
-# Salvar no GitHub: git add .    git commit -m "Primeiro commit"      git push 
+# Salvar no GitHub: git add .    git commit -m "painel + abas OK"      git push 
 
 # venv\Scripts\activate
 
