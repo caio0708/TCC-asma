@@ -5,10 +5,7 @@
   <title>Painel Asmático</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
 <body>
 
@@ -40,117 +37,111 @@
       </div>
     </div>
 
-    <!-- Resumo Diário -->
+    <!-- ================================================================= -->
+    <!-- SEÇÃO DOS CARDS DE RESUMO (CORRIGIDA)                             -->
+    <!-- ================================================================= -->
     <div class="daily-summary">
-      <div class="card" id="card-1">
-        <div class="card-title">Frequência Respiratória</div>
-        <div class="card-value">-- <span style="font-size: 0.9rem;">min</span></div>
-        <div class="card-updated">Atualizado: 12:55</div>
-      </div>
-      <div class="card" id="card-2">
-        <div class="card-title">Nível de Oxigênio</div>
-        <div class="card-value">-- <span style="font-size: 0.9rem;">%</span></div>
-        <div class="card-updated">Atualizado: 12:55</div>
-      </div>
-      <div class="card" id="card-3">
-        <div class="card-title">Contagem de Tosse</div>
-        <div class="card-value">- <span style="font-size: 0.9rem;">no dia</span></div>
-        <div class="card-updated">Atualizado: 12:55</div>
-      </div>
-      <div class="card" id="card-4">
-        <div class="card-title">Intensidade do Chiado</div>
-        <div class="card-value">Moderado</div>
-        <div class="card-updated">Atualizado: 12:55</div>
-      </div>
+      {# Mapeia o título do card para o ID do sensor usado na API e no JS #}
+      {% set id_map = {
+        "Temperatura Corporal": "temperatura-corporal",
+        "Temperatura Ambiente": "temperatura-ambiente",
+        "Umidade": "umidade",
+        "Saturação O₂": "saturacao",
+        "Tosse (dia)": "contagem-tosse"
+      } %}
+
+      {% for item in daily_summary %}
+        {% set sensor_id = id_map[item.title] %}
+        
+        <div class="card" id="card-{{ sensor_id }}">
+          <div class="card-title">{{ item.title }}</div>
+          
+          {# O valor agora está em um span com ID para o JS encontrar #}
+          <div class="card-value">
+            <span id="valor-{{ sensor_id }}">{{ item.value }}</span> 
+            <span class="card-unit">{{ item.unit }}</span>
+          </div>
+
+          {# O status agora tem um ID para o JS encontrar #}
+          <div class="card-updated" id="status-{{ sensor_id }}">Carregando...</div>
+        </div>
+      {% endfor %}
     </div>
 
     <!-- Seção de Monitoramento e Previsão -->
     <h2 class="section-title" style="margin-top: 2rem;">Monitoramento e Previsão</h2>
     <div class="content-row">
-
-      <!-- Coluna dos Gráficos com Abas -->
       <div class="graphs-section">
         <div class="graph-tabs">
-          <button class="graph-tab-btn active" data-target="airQualityChart">Qualidade do Ar AQI</button>
-          <button class="graph-tab-btn" data-target="umidVsSymptomsChart">Umidade do Ar x Sintomas</button>
+          <button class="graph-tab-btn" data-target="airQualityChart">Qualidade do Ar</button>
+          <button class="graph-tab-btn active" data-target="historicalDataChart">Monitoramento Histórico</button>
           <button class="graph-tab-btn" data-target="crisisPredictionChart">Previsão de Crise</button>
         </div>
         <div class="graph-container">
-          <canvas id="airQualityChart" class="graph-canvas active"></canvas>
-          <canvas id="umidVsSymptomsChart" class="graph-canvas"></canvas>
+          <canvas id="airQualityChart" class="graph-canvas"></canvas>
+          <canvas id="historicalDataChart" class="graph-canvas active"></canvas>
           <canvas id="crisisPredictionChart" class="graph-canvas"></canvas>
         </div>
       </div>
-
-      <!-- Adicionando os dados do Python para o JavaScript -->
-      <script>
-        var airLabels = {{ air_quality["labels"] | tojson | safe }};
-        var airData = {{ air_quality["values"] | tojson | safe }};
-
-        var umidLabels = {{ umid_vs_symptoms.labels | tojson | safe }};
-        var umidQuality = {{ umid_vs_symptoms.umid_quality | tojson | safe }};
-
-        // Extraindo só a intensidade dos sintomas (flatten para Chart.js)
-        var umidSymptoms = {{ umid_vs_symptoms.symptoms | tojson | safe }}.map(item => item.intensidade);
-
-        var crisesPrediction = "{{ crisesPrediction  }}";
-        const username = "{{ username }}";   
-        const accuracy = "{{ accuracy }}";
-
-        const hora = "{{ hora }}";
-      </script>
       
-<!-- Flip Container -->
-<div class="dashboard-container" style="display: flex; gap: 2rem; flex-wrap: wrap;">
-
-  <!-- Cartão com frente e verso -->
-  <div class="flip-card">
-    <div class="flip-card-inner" onclick="this.classList.toggle('flipped')">
-
-      <!-- Frente -->
-      <div class="flip-card-front">
-        <h3>Informações Ambientais</h3>
-        <div class="info-box">
-          <strong>Qualidade do Ar</strong><br>
-          Consulte os <a href="https://cetesb.sp.gov.br/ar/padroes-de-qualidade-do-ar/" target="_blank">padrões da CETESB</a>.
-          <span class="tag info">Informativo</span>
-        </div>
-        <div class="info-box">
-          <strong>Umidade Relativa</strong><br>
-          Ideal entre <strong>40% e 60%</strong> para quem tem asma.
-          <span class="tag recommended">Recomendado</span>
+      <!-- Flip Container (Cartão de Informações) -->
+      <div class="dashboard-container" style="display: flex; gap: 2rem; flex-wrap: wrap;">
+        <div class="flip-card">
+          <div class="flip-card-inner" onclick="this.classList.toggle('flipped')">
+            <!-- Frente -->
+            <div class="flip-card-front">
+              <h3>Informações Ambientais</h3>
+              <div class="info-box">
+                <strong>Qualidade do Ar</strong><br>
+                Consulte os <a href="https://cetesb.sp.gov.br/ar/padroes-de-qualidade-do-ar/" target="_blank">padrões da CETESB</a>.
+                <span class="tag info">Informativo</span>
+              </div>
+              <div class="info-box">
+                <strong>Umidade Relativa</strong><br>
+                Ideal entre <strong>40% e 60%</strong> para quem tem asma.
+                <span class="tag recommended">Recomendado</span>
+              </div>
+            </div>
+            <!-- Verso -->
+            <div class="flip-card-back">
+              <h3>Entendendo os Indicadores</h3>
+              <div class="info-box">
+                <strong>AQI (Air Quality Index)</strong><br>
+                Índice geral da qualidade do ar. Quanto maior, pior o ar.
+                <span class="tag global">Índice Global</span>
+              </div>
+              <div class="info-box alert">
+                <strong>PM2.5</strong><br>
+                Partículas finas que penetram profundamente nos pulmões.
+                <span class="tag alert">Alerta</span>
+              </div>
+              <div class="info-box moderate">
+                <strong>PM10</strong><br>
+                Partículas maiores, afetam o trato respiratório superior.
+                <span class="tag moderate">Moderado</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <!-- Verso -->
-      <div class="flip-card-back">
-        <h3>Entendendo os Indicadores</h3>
-        <div class="info-box">
-          <strong>AQI (Air Quality Index)</strong><br>
-          Índice geral da qualidade do ar (0–5). Quanto maior, pior o ar.
-          <span class="tag global">Índice Global</span>
-        </div>
-        <div class="info-box alert">
-          <strong>PM2.5</strong><br>
-          Partículas finas que penetram profundamente nos pulmões.
-          <span class="tag alert">Alerta</span>
-        </div>
-        <div class="info-box moderate">
-          <strong>PM10</strong><br>
-          Partículas maiores que PM2.5, afetam o trato respiratório superior.
-          <span class="tag moderate">Moderado</span>
-        </div>
-      </div>
-
     </div>
   </div>
 
-</div>
-
-
-
-</div>
-  <!-- Script para alternar os gráficos e inicializar os Chart.js -->
+  <!-- Adicionando os dados do Python para o JavaScript -->
+    <script>
+        const airLabels = {{ air_quality["labels"] | tojson }};
+        const airData = {{ air_quality["values"] | tojson }};
+        const historicalLabels = {{ historical_chart_data["labels"] | tojson }};
+        const bodyTempData = {{ historical_chart_data["body_temp"] | tojson }};
+        const ambientTempData = {{ historical_chart_data["ambient_temp"] | tojson }};
+        const humidityData = {{ historical_chart_data["humidity"] | tojson }};
+        const spo2Data = {{ historical_chart_data["spo2"] | tojson }};
+        const crisesPrediction = {{ crisesPrediction | tojson }};
+        const username = {{ username | tojson }};
+        const accuracy = {{ accuracy | tojson }};
+        const hora = {{ hora | tojson }};
+    </script>
+  
   <script src="{{ url_for('static', filename='js/painel.js') }}"></script>
 </body>
 </html>

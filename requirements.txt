@@ -9,6 +9,7 @@ scikit-learn
 paho-mqtt
 #tensorflow
 docling
+jsonify
 
 # pip install -r requirements.txt
 
