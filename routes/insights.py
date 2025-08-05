@@ -17,6 +17,12 @@ import paho.mqtt.client as mqtt
 from routes.sensores import SENSORES_PADRAO # Reutiliza a lista padrão
 # --- FIM: Adições para dados ao vivo ---
 
+# --- INÍCIO: Adições para ML ---
+import librosa
+import tensorflow as tf
+import joblib
+# --- FIM: Adições para ML ---
+
 from scipy.signal import find_peaks, butter, filtfilt
 from scipy.interpolate import interp1d
 from werkzeug.utils import secure_filename
@@ -31,6 +37,33 @@ API_KEY = '7288a386509b40eb0513fd8500bd5d5d'
 UPLOAD_FOLDER = 'Uploads/audio'
 ALLOWED_EXTENSIONS = {'webm'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# --- INÍCIO: CONFIGURAÇÕES E CARREGAMENTO DO MODELO DE ML ---
+MODEL_ARTIFACTS_DIR = r'E:\Dev\TCC-asma\ia\model_artifacts'
+MODEL_PATH = os.path.join(MODEL_ARTIFACTS_DIR, 'audio_asthma_detection_model.keras')
+ENCODER_PATH = os.path.join(MODEL_ARTIFACTS_DIR, 'label_encoder.joblib')
+
+ml_model = None
+ml_encoder = None
+try:
+    if os.path.exists(MODEL_PATH):
+        ml_model = tf.keras.models.load_model(MODEL_PATH)
+        print(f"✅ Modelo de áudio '{os.path.basename(MODEL_PATH)}' carregado.")
+    else:
+        print(f"⚠️  AVISO: Arquivo do modelo de áudio não encontrado em {MODEL_PATH}")
+
+    if os.path.exists(ENCODER_PATH):
+        ml_encoder = joblib.load(ENCODER_PATH)
+        print(f"✅ Encoder de áudio '{os.path.basename(ENCODER_PATH)}' carregado.")
+    else:
+        print(f"⚠️  AVISO: Arquivo do encoder de áudio não encontrado em {ENCODER_PATH}")
+
+except Exception as e:
+    print(f"❌ ERRO CRÍTICO ao carregar os artefatos de ML: {e}")
+    ml_model = None
+    ml_encoder = None
+# --- FIM: CONFIGURAÇÕES E CARREGAMENTO DO MODELO DE ML ---
+
 
 # --- CONSTANTES DE ANÁLISE ---
 SAMPLING_RATE = 50  # Hz
@@ -93,6 +126,40 @@ mqtt_thread.start()
 
 # --- FIM: LÓGICA DE DADOS AO VIVO (MQTT) ---
 
+# --- INÍCIO: FUNÇÃO DE PREDIÇÃO DE ÁUDIO ---
+def predict_audio_class(wav_path):
+    """
+    Analisa um arquivo de áudio WAV e prevê a classe usando o modelo de ML treinado.
+    """
+    if not ml_model or not ml_encoder:
+        return {"error": "Modelo de ML ou encoder não está carregado no servidor."}
+    if not os.path.exists(wav_path):
+        return {"error": f"Arquivo de áudio não encontrado em: {wav_path}"}
+
+    try:
+        y_new, sr_new = librosa.load(wav_path, sr=None)
+        if len(y_new) < 2048:
+            return {"error": "Amostra de áudio muito curta para análise."}
+        
+        mfcc_new = librosa.feature.mfcc(y=y_new, sr=sr_new, n_mfcc=13)
+        X_new = np.mean(mfcc_new, axis=1)
+        X_new_processed = X_new.reshape(1, X_new.shape[0], 1)
+
+        y_new_pred_proba = ml_model.predict(X_new_processed)
+        confidence = np.max(y_new_pred_proba)
+        y_new_pred_encoded = np.argmax(y_new_pred_proba, axis=1)
+
+        predicted_class_array = ml_encoder.inverse_transform(y_new_pred_encoded)
+        predicted_class = predicted_class_array[0]
+
+        return {
+            "predicted_class": str(predicted_class),
+            "confidence": float(confidence)
+        }
+    except Exception as e:
+        print(f"❌ Erro durante a predição de áudio para '{wav_path}': {e}")
+        return {"error": f"Ocorreu um erro inesperado durante a análise do áudio: {str(e)}"}
+# --- FIM: FUNÇÃO DE PREDIÇÃO DE ÁUDIO ---
 
 # --- INÍCIO: NÚCLEO DE ANÁLISE (INALERADO) ---
 
@@ -368,40 +435,32 @@ def get_env_data():
         'triggers': triggers
     }
 
-# --- ROTAS FLASK e LÓGICA DE UPLOAD (INALERADAS) ---
+# --- ROTAS FLASK e LÓGICA DE UPLOAD ---
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def convert_webm_to_wav(webm_path, wav_path):
     try:
+        # O argumento -y sobrescreve o arquivo de saída se ele já existir
         subprocess.run(['ffmpeg', '-y', '-i', webm_path, wav_path], capture_output=True, text=True, check=True)
         return True
     except subprocess.CalledProcessError as e:
         print(f'❌ Erro na conversão com ffmpeg: {e.stderr}')
         return False
     except FileNotFoundError:
-        print("❌ 'ffmpeg' não encontrado. Instale e adicione ao PATH.")
+        print("❌ 'ffmpeg' não encontrado. Instale-o e adicione-o ao PATH do sistema.")
         return False
     return False
 
-def get_ml_data():
-    epochs = list(range(1, 11))
-    accuracy = [round(random.uniform(0.7, 1.0), 2) for _ in epochs]
-    loss = [round(random.uniform(0.1, 0.5), 2) for _ in epochs]
-    return {"epochs": epochs, "accuracy": accuracy, "loss": loss}
-
-
 @insights_bp.route('/insights')
 def insights():
-    # A chamada inicial carrega os dados
     env_data = get_env_data()
     usage_events = session.get('usage_events', [])
     return render_template('insights.html', env_data=env_data, usage_events=usage_events)
 
 @insights_bp.route('/api/data')
 def api_data():
-    # Esta API agora retorna a combinação de dados de análise + ao vivo
     return jsonify({
         'env_data': get_env_data(),
         'usage_events': session.get('usage_events', [])
@@ -430,15 +489,41 @@ def upload_audio():
     file = request.files['audio']
     if not file or not allowed_file(file.filename):
         return jsonify({'error': 'Extensão de arquivo não permitida'}), 400
+    
     filename = secure_filename(f"{uuid.uuid4()}.webm")
     webm_path = os.path.join(UPLOAD_FOLDER, filename)
     wav_filename = os.path.splitext(filename)[0] + '.wav'
     wav_path = os.path.join(UPLOAD_FOLDER, wav_filename)
+    
     try:
         file.save(webm_path)
     except Exception as e:
         return jsonify({'error': f'Falha ao salvar o arquivo: {e}'}), 500
+    
     if convert_webm_to_wav(webm_path, wav_path):
-        return jsonify({'message': 'Áudio salvo e convertido', 'wav_path': f'/{UPLOAD_FOLDER}/{wav_filename}'}), 200
+        # Retorna o caminho web, não o caminho do sistema de arquivos
+        web_wav_path = f'/{UPLOAD_FOLDER}/{wav_filename}'.replace(os.path.sep, '/')
+        return jsonify({'message': 'Áudio salvo e convertido', 'wav_path': web_wav_path}), 200
     else:
         return jsonify({'error': 'Falha na conversão do áudio'}), 500
+
+# --- INÍCIO: NOVA ROTA PARA PREDIÇÃO DE ÁUDIO ---
+@insights_bp.route('/api/predict-audio', methods=['POST'])
+def predict_audio_route():
+    data = request.get_json()
+    wav_path = data.get('wav_path')
+
+    if not wav_path:
+        return jsonify({'error': 'Caminho do arquivo WAV não fornecido'}), 400
+
+    # Converte o caminho web (ex: /Uploads/audio/file.wav) para um caminho de sistema de arquivos local
+    # lstrip('/') remove a barra inicial para criar um caminho relativo correto
+    local_wav_path = wav_path.lstrip('/')
+    
+    prediction_result = predict_audio_class(local_wav_path)
+    
+    if "error" in prediction_result:
+        return jsonify(prediction_result), 500
+        
+    return jsonify(prediction_result), 200
+# --- FIM: NOVA ROTA PARA PREDIÇÃO DE ÁUDIO ---

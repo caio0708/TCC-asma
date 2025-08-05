@@ -13,7 +13,7 @@ jsonify
 
 # pip install -r requirements.txt
 
-# Salvar no GitHub: git add .    git commit -m "sensorese grFICOS INSIGHT ok"      git push 
+# Salvar no GitHub: git add .    git commit -m "grafico painel atualizado horas antes"      git push 
 
 # venv\Scripts\activate
 

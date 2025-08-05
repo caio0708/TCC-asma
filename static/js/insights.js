@@ -9,29 +9,34 @@ document.addEventListener('DOMContentLoaded', () => {
     motionChart: null
   };
 
-  // --- MINIGAME LOGIC (Unaltered) ---
+  // --- MINIGAME LOGIC ---
   const breathingText = document.getElementById("breathingText"),
         breathingCircle = document.getElementById("breathingCircle"),
         circleProgress = document.querySelector(".circle-progress"),
         startButton = document.getElementById("startGameBtn"),
         downloadContainer = document.getElementById("downloadContainer"),
+        // Adicionado para exibir o resultado da predição
+        predictionResultEl = document.getElementById("predictionResult"),
         radius = 65,
         circumference = 2 * Math.PI * radius;
   circleProgress.style.strokeDasharray = `${circumference}`;
   circleProgress.style.strokeDashoffset = `${circumference}`;
   const phases = [
-    { name: "inhale", duration: 2000, scale: 1.3, text: "Inspire" },
+    { name: "inhale", duration: 3000, scale: 1.3, text: "Inspire pela Boca" },
     { name: "hold", duration: 1000, scale: 1.3, text: "Prenda" },
-    { name: "exhale", duration: 3000, scale: 0.7, text: "Expire" },
+    { name: "exhale", duration: 4000, scale: 0.7, text: "Expire pela Boca" },
     { name: "hold", duration: 1000, scale: 0.7, text: "Prenda" }
   ];
   let phaseIndex = 0, isRunning = false, phaseTimeout = null, mediaRecorder, audioChunks = [];
+  
   async function iniciarGravacao() {
     try {
       let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
       audioChunks = [];
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+      
+      // --- INÍCIO: LÓGICA MODIFICADA DE UPLOAD E PREDIÇÃO ---
       mediaRecorder.onstop = () => {
         let blob = new Blob(audioChunks, { type: "audio/webm" }),
             url = URL.createObjectURL(blob);
@@ -39,25 +44,76 @@ document.addEventListener('DOMContentLoaded', () => {
         let a = document.createElement("a");
         a.href = url;
         a.download = "gravacao_respiracao.webm";
-        a.textContent = "⬇️ Baixar áudio da respiração";
+        a.textContent = "";    //BOTAO DOWNLOAD TEXTO  "⬇️ Baixar áudio da respiração"
         a.className = "download-btn";
         downloadContainer.appendChild(a);
+
+        // 1. Mostrar status de análise e limpar resultados antigos
+        if (predictionResultEl) {
+            predictionResultEl.innerHTML = '<p class="loading">Analisando o áudio...</p>';
+            predictionResultEl.style.display = 'block';
+        }
+
         let formData = new FormData();
         formData.append("audio", blob, "gravacao_respiracao.webm");
+
+        // 2. Fazer upload do áudio para conversão
         fetch("/api/upload-audio", { method: "POST", body: formData })
-          .then(e => e.json())
-          .then(e => console.log("✅ Upload concluído:", e))
-          .catch(e => console.error("Erro no upload:", e));
+          .then(res => {
+              if (!res.ok) throw new Error(`Falha no upload (${res.status})`);
+              return res.json();
+          })
+          .then(uploadData => {
+              console.log("✅ Upload concluído:", uploadData);
+              if (uploadData.error) throw new Error(uploadData.error);
+              
+              // 3. Chamar a API de predição com o caminho do arquivo .wav
+              return fetch("/api/predict-audio", {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ wav_path: uploadData.wav_path })
+              });
+          })
+          .then(res => {
+              if (!res.ok) throw new Error(`Falha na predição (${res.status})`);
+              return res.json();
+          })
+          .then(predictionData => {
+              console.log("🧠 Predição recebida:", predictionData);
+              // 4. Exibir o resultado da predição na tela
+              if (predictionResultEl) {
+                  if (predictionData.error) {
+                      predictionResultEl.innerHTML = `<p class="error">Erro na Análise: ${predictionData.error}</p>`;
+                  } else {
+                      const confidencePercent = (predictionData.confidence * 100).toFixed(1);
+                      predictionResultEl.innerHTML = `
+                          <p class="result-title">Resultado da Análise:</p>
+                          <p class="result-class">${predictionData.predicted_class}</p>
+                          <p class="result-confidence">Confiança: ${confidencePercent}%</p>
+                      `;
+                  }
+              }
+          })
+          .catch(err => {
+              console.error("❌ Erro no processo de análise de áudio:", err);
+              if (predictionResultEl) {
+                  predictionResultEl.innerHTML = `<p class="error">Falha ao processar o áudio: ${err.message}</p>`;
+              }
+          });
       };
+      // --- FIM: LÓGICA MODIFICADA DE UPLOAD E PREDIÇÃO ---
+      
       mediaRecorder.start();
     } catch (e) {
       console.error("Erro ao obter mídia:", e);
       alert("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
     }
   }
+
   function pararGravacao() {
     if (mediaRecorder && mediaRecorder.state !== "inactive") mediaRecorder.stop();
   }
+
   function animatePhase(e) {
     breathingText.textContent = e.text;
     breathingCircle.style.transform = `scale(${e.scale})`;
@@ -74,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isRunning) animatePhase(phases[phaseIndex]);
     }, e.duration);
   }
+
   startButton.addEventListener("click", async () => {
     if (isRunning) {
       isRunning = false;
@@ -85,6 +142,10 @@ document.addEventListener('DOMContentLoaded', () => {
       startButton.textContent = "Iniciar Exercício";
       pararGravacao();
     } else {
+      // Limpar resultados anteriores ao iniciar
+      if (predictionResultEl) predictionResultEl.style.display = 'none';
+      if (downloadContainer) downloadContainer.innerHTML = "";
+      
       await iniciarGravacao();
       isRunning = true;
       phaseIndex = 0;
