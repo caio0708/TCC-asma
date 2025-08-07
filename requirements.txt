@@ -14,7 +14,7 @@ pyaudio
 
 # pip install -r requirements.txt
 
-# Salvar no GitHub: git add .    git commit -m "previsao respirar ok"      git push 
+# Salvar no GitHub: git add .    git commit -m "insight+conta tosse ok"      git push 
 
 # venv\Scripts\activate
 

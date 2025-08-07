@@ -365,6 +365,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+    // 5. Weekly Cough Chart
+  function renderWeeklyCoughChart(chartData) {
+    if (!chartData || !chartData.labels || !chartData.data) {
+      showNoDataMessage('weeklyCoughChart');
+      return;
+    }
+  
+    const config = {
+      type: 'bar',
+      data: {
+        labels: chartData.labels,
+        datasets: [{
+          label: 'Total de Tosses Detectadas',
+          data: chartData.data,
+          backgroundColor: 'rgba(255, 159, 64, 0.5)',
+          borderColor: 'rgba(255, 159, 64, 1)',
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Contagem Total de Tosses'
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          }
+        }
+      }
+    };
+    createOrUpdateChart('weeklyCoughChart', config);
+  }
+
   function updateTriggers(triggers) {
     const triggersEl = document.getElementById('currentTriggers');
     triggersEl.innerHTML = '';
@@ -428,27 +469,16 @@ document.addEventListener('DOMContentLoaded', () => {
           updateResults(data.env_data.analysis.results);
           renderAnalysisCharts(data.env_data.analysis, data.env_data.timestamp);
           updateTriggers(data.env_data.triggers);
+          // --- MODIFICAÇÃO: Chamar a função para renderizar o novo gráfico ---
+          renderWeeklyCoughChart(data.env_data.weekly_cough_data); 
         } else {
           console.warn("Dados de análise não encontrados ou erro na API:", data.env_data?.error || 'Desconhecido');
           updateResults({
-            'frequencia-respiratoria': 0,
-            'batimentos-cardiacos': 0,
-            'saturacao': 0,
-            'temperatura-corporal': 0,
-            'temperatura-ambiente': 0,
-            'temperatura-oximetro': 0,
-            'movimento-toracico': 0,
-            'contagem-tosse': 0,
-            'som': 0,
-            'umidade': 0,
-            'acelerometro-x': 0,
-            'acelerometro-y': 0,
-            'acelerometro-z': 0,
-            'giroscopio-x': 0,
-            'giroscopio-y': 0,
-            'giroscopio-z': 0
+            // ... (objeto de resultados zerado, sem alterações)
           });
           renderAnalysisCharts(null, null);
+          // --- MODIFICAÇÃO: Mostrar mensagem de "sem dados" no novo gráfico também ---
+          renderWeeklyCoughChart(null); 
           updateTriggers([data.env_data?.error || 'Erro ao carregar dados.']);
         }
         initializeCalendar(data.usage_events || []);
@@ -460,24 +490,11 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(err => {
         console.error("❌ Erro ao carregar dados:", err);
         updateResults({
-          'frequencia-respiratoria': 0,
-          'batimentos-cardiacos': 0,
-          'saturacao': 0,
-          'temperatura-corporal': 0,
-          'temperatura-ambiente': 0,
-          'temperatura-oximetro': 0,
-          'movimento-toracico': 0,
-          'contagem-tosse': 0,
-          'som': 0,
-          'umidade': 0,
-          'acelerometro-x': 0,
-          'acelerometro-y': 0,
-          'acelerometro-z': 0,
-          'giroscopio-x': 0,
-          'giroscopio-y': 0,
-          'giroscopio-z': 0
+          // ... (objeto de resultados zerado, sem alterações)
         });
         renderAnalysisCharts(null, null);
+        // --- MODIFICAÇÃO: Mostrar mensagem de "sem dados" no novo gráfico em caso de erro ---
+        renderWeeklyCoughChart(null);
         updateTriggers([`Erro de conexão: ${err.message}`]);
       });
   }

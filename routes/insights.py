@@ -249,6 +249,41 @@ def analyze_sound(mic_signal, fs):
     sound_peaks, _ = find_peaks(mic_signal, height=threshold, distance=fs * 0.3)
     return sound_peaks, threshold
 
+def analyze_weekly_cough(df):
+    """
+    Analisa um DataFrame para calcular a contagem total de tosse por dia da semana.
+    """
+    try:
+        if 'Data' not in df.columns or 'contagem-tosse' not in df.columns:
+            return None
+
+        # Garante que a coluna 'Data' seja do tipo datetime
+        df_copy = df.copy()
+        df_copy['Data'] = pd.to_datetime(df_copy['Data'], errors='coerce')
+        df_copy.dropna(subset=['Data'], inplace=True)
+
+        # Como 'contagem-tosse' é um contador que reseta, pegamos o valor máximo de cada dia.
+        daily_max_coughs = df_copy.groupby(df_copy['Data'].dt.date)['contagem-tosse'].max()
+
+        # Extrai o nome do dia da semana (em português) do índice de data
+        daily_max_coughs.index = pd.to_datetime(daily_max_coughs.index)
+        day_names = daily_max_coughs.index.day_name(locale='pt_BR.utf8')
+
+        # Agrupa pelo nome do dia da semana e soma os máximos diários
+        weekly_cough_sum = daily_max_coughs.groupby(day_names).sum()
+        
+        # Ordena os dias da semana corretamente
+        dias_semana_pt = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
+        weekly_cough_sum = weekly_cough_sum.reindex(dias_semana_pt, fill_value=0)
+
+        return {
+            "labels": [d[:3] for d in weekly_cough_sum.index],  # ['Seg', 'Ter', ...]
+            "data": weekly_cough_sum.values.tolist()
+        }
+    except Exception as e:
+        print(f"Erro ao analisar tosse semanal: {e}")
+        return None
+
 def run_full_analysis(df_raw):
     """
     Executa a pipeline completa de análise de dados brutos dos sensores.
@@ -346,8 +381,6 @@ def run_full_analysis(df_raw):
 
     return {'results': results, 'charts': charts}
 
-# --- FIM: NÚCLEO DE ANÁLISE ---
-
 def get_empty_analysis_data():
     """Retorna uma estrutura de dados de análise vazia em caso de erro."""
     return {
@@ -374,6 +407,7 @@ def get_env_data():
         csv_path = r'E:\Dev\TCC-asma\ia\dados\sensores.csv' 
         # ATENÇÃO: Use o cabeçalho corrigido no seu CSV para esta parte funcionar
         df_raw = pd.read_csv(csv_path)
+        weekly_cough_analysis = analyze_weekly_cough(df_raw)
         df_raw.dropna(inplace=True)
 
         # Analisa os últimos 5 segundos para os gráficos
@@ -428,7 +462,8 @@ def get_env_data():
     return {
         'timestamp': timestamp,
         'analysis': analysis_data, # Contém 'results' atualizados e 'charts' do CSV
-        'triggers': triggers
+        'triggers': triggers,
+        'weekly_cough_data': weekly_cough_analysis
     }
 
 # --- ROTAS FLASK e LÓGICA DE UPLOAD ---
