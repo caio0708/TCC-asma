@@ -269,13 +269,13 @@ def run_full_analysis(df_raw):
     # Extrai dados do DataFrame
     sensor_data = {sensor['id']: df_raw[sensor['id']].to_numpy() if sensor['id'] in df_raw else np.array([]) for sensor in SENSORES_PADRAO}
     fs = SAMPLING_RATE
-    time_axis = (np.arange(len(sensor_data['batimentos-cardiacos'])) / fs).tolist() if len(sensor_data['batimentos-cardiacos']) > 0 else []
+    time_axis = (np.arange(len(df_raw)) / fs).tolist()
 
     # Executa as análises
     hr, rr, spo2, hr_peaks, ir_filtered, resp_signal, resp_peaks, resp_time_vector = analyze_ppg_robust(
         sensor_data['batimentos-cardiacos'], sensor_data['saturacao'], fs
     )
-    sound_peaks, mic_threshold = analyze_sound(sensor_data['contagem-tosse'], fs)
+    sound_peaks, mic_threshold = analyze_sound(sensor_data['som'], fs)
     motion_magnitude, thoracic_movement = analyze_motion(
         sensor_data['acelerometro-x'], sensor_data['acelerometro-y'], sensor_data['acelerometro-z']
     )
@@ -284,15 +284,6 @@ def run_full_analysis(df_raw):
     # Médias para sensores escalares
     body_temp = df_raw['temperatura-corporal'].mean() if 'temperatura-corporal' in df_raw and not df_raw['temperatura-corporal'].isna().all() else 0
     oximeter_temp = df_raw['temperatura-oximetro'].mean() if 'temperatura-oximetro' in df_raw and not df_raw['temperatura-oximetro'].isna().all() else 0
-
-    # Lógica de correlação para tosse
-    cough_count = 0
-    if len(sound_peaks) > 0 and len(motion_peaks) > 0:
-        sound_times = sound_peaks / fs
-        motion_times = motion_peaks / fs
-        for st in sound_times:
-            if np.any(np.abs(motion_times - st) < 0.1):
-                cough_count += 1
 
     # Monta o dicionário de resultados
     results = {
@@ -306,7 +297,8 @@ def run_full_analysis(df_raw):
         'qualidade-ar-pm10': 0,
         'qualidade-ar-aqi': 0,
         'movimento-toracico': round(float(thoracic_movement), 3) if thoracic_movement > 0 else 0,
-        'contagem-tosse': cough_count,
+        'contagem-tosse': len(sound_peaks) if sound_peaks is not None else 0,
+        'som': round(float(np.mean(sensor_data['som'])), 3) if len(sensor_data['som']) > 0 else 0,
         'umidade': 0,
         'acelerometro-x': round(float(np.mean(sensor_data['acelerometro-x'])), 3) if len(sensor_data['acelerometro-x']) > 0 else 0,
         'acelerometro-y': round(float(np.mean(sensor_data['acelerometro-y'])), 3) if len(sensor_data['acelerometro-y']) > 0 else 0,
@@ -339,10 +331,10 @@ def run_full_analysis(df_raw):
         'ppg': ppg_chart_data,
         'respiration': resp_chart_data,
         'sound': {
-            'signal': sensor_data['contagem-tosse'].tolist() if len(sensor_data['contagem-tosse']) > 0 else [],
+            'signal': sensor_data['som'].tolist() if len(sensor_data['som']) > 0 else [],
             'threshold': float(mic_threshold) if mic_threshold is not None else 0,
             'peaks_time': (sound_peaks / fs).tolist() if len(sound_peaks) > 0 else [],
-            'peaks_value': [float(sensor_data['contagem-tosse'][i]) for i in sound_peaks if i < len(sensor_data['contagem-tosse'])]
+            'peaks_value': [float(sensor_data['som'][i]) for i in sound_peaks if i < len(sensor_data['som'])]
         },
         'motion': {
             'signal': motion_magnitude.tolist() if len(motion_magnitude) > 0 else [],
@@ -378,31 +370,35 @@ def get_env_data():
     """
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
-    # 1. Análise Histórica (para Gráficos) a partir do CSV
     try:
-        # Use o caminho absoluto para evitar problemas com o diretório de trabalho
         csv_path = r'E:\Dev\TCC-asma\ia\dados\sensores.csv' 
+        # ATENÇÃO: Use o cabeçalho corrigido no seu CSV para esta parte funcionar
         df_raw = pd.read_csv(csv_path)
-        df_to_analyze = df_raw.tail(10 * SAMPLING_RATE) # Analisa os últimos 10 segundos
+        df_raw.dropna(inplace=True)
+
+        # Analisa os últimos 5 segundos para os gráficos
+        df_to_analyze = df_raw.tail(5 * SAMPLING_RATE) 
         
         if len(df_to_analyze) < MIN_SAMPLES:
             analysis_data = get_empty_analysis_data()['analysis']
             triggers = ["Dados insuficientes no CSV para análise completa"]
         else:
-             # Executar a análise completa dos sinais do CSV
             analysis_data = run_full_analysis(df_to_analyze)
-            triggers = [] # Será recalculado abaixo
+            triggers = [] 
 
     except FileNotFoundError:
         return { "error": f"Arquivo '{csv_path}' não encontrado.", "timestamp": timestamp, **get_empty_analysis_data(), "triggers": ["Arquivo de dados CSV não encontrado"] }
     except Exception as e:
+        # Adicionado mais detalhes ao erro para facilitar a depuração
+        print(f"ERRO EM get_env_data: {e}")
         return { "error": f"Erro ao ler ou analisar o CSV: {e}", "timestamp": timestamp, **get_empty_analysis_data(), "triggers": [f"Erro no processamento do CSV: {e}"] }
 
     # 2. Mesclar com Dados ao Vivo (MQTT) para os cartões de resultado
     res = analysis_data['results']
     with live_data_lock:
+        current_live_data = live_sensor_data.copy()
         # Sobrescreve os valores no dicionário 'results' com os dados mais recentes do MQTT
-        for sensor_id, value in live_sensor_data.items():
+        for sensor_id, value in current_live_data.items():
             if sensor_id in res:
                 # Mantém a formatação/tipo original se possível, mas atualiza o valor
                 try:

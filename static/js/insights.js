@@ -161,11 +161,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('analysisResults');
     container.innerHTML = '';
     const metrics = [
-      { label: 'Batimentos Cardíacos', value: results['batimentos-cardiacos'] > 0 ? results['batimentos-cardiacos'].toFixed(1) : 'N/A', unit: 'BPM' },
+      { label: 'Batimentos Cardíacos', value: results['batimentos-cardiacos'] > 0 ? results['batimentos-cardiacos'].toFixed(0) : 'N/A', unit: 'BPM' },
       { label: 'Saturação', value: results['saturacao'] > 0 ? results['saturacao'].toFixed(1) : 'N/A', unit: '%' },
       { label: 'Temperatura Corporal', value: results['temperatura-corporal'] > 0 ? results['temperatura-corporal'].toFixed(2) : 'N/A', unit: '°C' },
       { label: 'Temperatura Oximetro', value: results['temperatura-oximetro'] > 0 ? results['temperatura-oximetro'].toFixed(2) : 'N/A', unit: '°C' },
-      { label: 'Contagem de Tosse', value: results['contagem-tosse'] >= 0 ? results['contagem-tosse'] : 0, unit: 'no dia' },
+      { label: 'Nível de Ruído', value: results['som'] > 0 ? results['som'].toFixed(0) : 'N/A', unit: 'ADC' },
     ];
     metrics.forEach(metric => {
       const card = document.createElement('div');
@@ -439,6 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'temperatura-oximetro': 0,
             'movimento-toracico': 0,
             'contagem-tosse': 0,
+            'som': 0,
             'umidade': 0,
             'acelerometro-x': 0,
             'acelerometro-y': 0,
@@ -467,6 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
           'temperatura-oximetro': 0,
           'movimento-toracico': 0,
           'contagem-tosse': 0,
+          'som': 0,
           'umidade': 0,
           'acelerometro-x': 0,
           'acelerometro-y': 0,

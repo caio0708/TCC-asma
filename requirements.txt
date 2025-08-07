@@ -10,10 +10,11 @@ paho-mqtt
 #tensorflow
 docling
 jsonify
+pyaudio
 
 # pip install -r requirements.txt
 
-# Salvar no GitHub: git add .    git commit -m "grafico painel atualizado horas antes"      git push 
+# Salvar no GitHub: git add .    git commit -m "previsao respirar ok"      git push 
 
 # venv\Scripts\activate
 

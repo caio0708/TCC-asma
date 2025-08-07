@@ -13,6 +13,10 @@ SENSOR_DATA_CSV = 'dados/sensores.csv'
 
 # --- FUNÇÕES DE DADOS ---
 
+def to_float(value):
+    try: return float(value)
+    except (ValueError, TypeError): return None
+
 def read_sensor_data_from_csv(file_path):
     """Lê todos os dados históricos de sensores do arquivo CSV."""
     if not os.path.isfile(file_path):
