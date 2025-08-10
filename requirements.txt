@@ -7,14 +7,14 @@ cachetools
 pandas
 scikit-learn
 paho-mqtt
-#tensorflow
+tensorflow
 docling
 jsonify
 pyaudio
 
 # pip install -r requirements.txt
 
-# Salvar no GitHub: git add .    git commit -m "insight+conta tosse ok"      git push 
+# Salvar no GitHub: git add .    git commit -m "grafico conta tosse ok"      git push 
 
 # venv\Scripts\activate
 

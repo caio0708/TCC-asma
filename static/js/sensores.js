@@ -3,7 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
   atualizarSensores();
 
   // Configura um intervalo para atualizar os sensores
-  setInterval(atualizarSensores, 1000);
+  setInterval(atualizarSensores, 500);
 });
 
 function atualizarSensores() {

@@ -1,26 +1,28 @@
-// insights.js
-
 document.addEventListener('DOMContentLoaded', () => {
+  // Inicializa um objeto para manter as instâncias dos gráficos
   let calendar;
   const charts = {
     ppgChart: null,
     respirationChart: null,
     soundChart: null,
-    motionChart: null
+    motionChart: null,
+    piezoChart: null,
+    weeklyCoughChart: null
   };
 
-  // --- MINIGAME LOGIC ---
+  // --- MINIGAME LOGIC (sem alterações) ---
   const breathingText = document.getElementById("breathingText"),
         breathingCircle = document.getElementById("breathingCircle"),
         circleProgress = document.querySelector(".circle-progress"),
         startButton = document.getElementById("startGameBtn"),
         downloadContainer = document.getElementById("downloadContainer"),
-        // Adicionado para exibir o resultado da predição
         predictionResultEl = document.getElementById("predictionResult"),
         radius = 65,
         circumference = 2 * Math.PI * radius;
-  circleProgress.style.strokeDasharray = `${circumference}`;
-  circleProgress.style.strokeDashoffset = `${circumference}`;
+  if(circleProgress) {
+    circleProgress.style.strokeDasharray = `${circumference}`;
+    circleProgress.style.strokeDashoffset = `${circumference}`;
+  }
   const phases = [
     { name: "inhale", duration: 3000, scale: 1.3, text: "Inspire pela Boca" },
     { name: "hold", duration: 1000, scale: 1.3, text: "Prenda" },
@@ -36,62 +38,35 @@ document.addEventListener('DOMContentLoaded', () => {
       audioChunks = [];
       mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
       
-      // --- INÍCIO: LÓGICA MODIFICADA DE UPLOAD E PREDIÇÃO ---
       mediaRecorder.onstop = () => {
-        let blob = new Blob(audioChunks, { type: "audio/webm" }),
-            url = URL.createObjectURL(blob);
-        downloadContainer.innerHTML = "";
-        let a = document.createElement("a");
-        a.href = url;
-        a.download = "gravacao_respiracao.webm";
-        a.textContent = "";    //BOTAO DOWNLOAD TEXTO  "⬇️ Baixar áudio da respiração"
-        a.className = "download-btn";
-        downloadContainer.appendChild(a);
-
-        // 1. Mostrar status de análise e limpar resultados antigos
+        let blob = new Blob(audioChunks, { type: "audio/webm" });
         if (predictionResultEl) {
             predictionResultEl.innerHTML = '<p class="loading">Analisando o áudio...</p>';
             predictionResultEl.style.display = 'block';
         }
-
         let formData = new FormData();
         formData.append("audio", blob, "gravacao_respiracao.webm");
 
-        // 2. Fazer upload do áudio para conversão
         fetch("/api/upload-audio", { method: "POST", body: formData })
-          .then(res => {
-              if (!res.ok) throw new Error(`Falha no upload (${res.status})`);
-              return res.json();
-          })
-          .then(uploadData => {
-              console.log("✅ Upload concluído:", uploadData);
-              if (uploadData.error) throw new Error(uploadData.error);
-              
-              // 3. Chamar a API de predição com o caminho do arquivo .wav
+          .then(res => res.json().then(data => ({ ok: res.ok, status: res.status, data })))
+          .then(({ ok, status, data }) => {
+              if (!ok) throw new Error(data.error || `Falha no upload (${status})`);
               return fetch("/api/predict-audio", {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ wav_path: uploadData.wav_path })
+                  body: JSON.stringify({ wav_path: data.wav_path })
               });
           })
-          .then(res => {
-              if (!res.ok) throw new Error(`Falha na predição (${res.status})`);
-              return res.json();
-          })
-          .then(predictionData => {
-              console.log("🧠 Predição recebida:", predictionData);
-              // 4. Exibir o resultado da predição na tela
+          .then(res => res.json().then(data => ({ ok: res.ok, status: res.status, data })))
+          .then(({ ok, status, data }) => {
+              if (!ok) throw new Error(data.error || `Falha na predição (${status})`);
               if (predictionResultEl) {
-                  if (predictionData.error) {
-                      predictionResultEl.innerHTML = `<p class="error">Erro na Análise: ${predictionData.error}</p>`;
-                  } else {
-                      const confidencePercent = (predictionData.confidence * 100).toFixed(1);
-                      predictionResultEl.innerHTML = `
-                          <p class="result-title">Resultado da Análise:</p>
-                          <p class="result-class">${predictionData.predicted_class}</p>
-                          <p class="result-confidence">Confiança: ${confidencePercent}%</p>
-                      `;
-                  }
+                  const confidencePercent = (data.confidence * 100).toFixed(1);
+                  predictionResultEl.innerHTML = `
+                      <p class="result-title">Resultado da Análise:</p>
+                      <p class="result-class">${data.predicted_class}</p>
+                      <p class="result-confidence">Confiança: ${confidencePercent}%</p>
+                  `;
               }
           })
           .catch(err => {
@@ -101,8 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
               }
           });
       };
-      // --- FIM: LÓGICA MODIFICADA DE UPLOAD E PREDIÇÃO ---
-      
       mediaRecorder.start();
     } catch (e) {
       console.error("Erro ao obter mídia:", e);
@@ -115,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function animatePhase(e) {
+    if (!breathingText || !breathingCircle || !circleProgress) return;
     breathingText.textContent = e.text;
     breathingCircle.style.transform = `scale(${e.scale})`;
     circleProgress.style.transition = "none";
@@ -131,40 +105,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }, e.duration);
   }
 
-  startButton.addEventListener("click", async () => {
-    if (isRunning) {
-      isRunning = false;
-      clearTimeout(phaseTimeout);
-      breathingCircle.style.transform = "scale(1)";
-      circleProgress.style.transition = "none";
-      circleProgress.style.strokeDashoffset = `${circumference}`;
-      breathingText.textContent = "Pronto?";
-      startButton.textContent = "Iniciar Exercício";
-      pararGravacao();
-    } else {
-      // Limpar resultados anteriores ao iniciar
-      if (predictionResultEl) predictionResultEl.style.display = 'none';
-      if (downloadContainer) downloadContainer.innerHTML = "";
-      
-      await iniciarGravacao();
-      isRunning = true;
-      phaseIndex = 0;
-      animatePhase(phases[phaseIndex]);
-      startButton.textContent = "Parar Exercício";
-    }
-  });
-
+  if(startButton){
+    startButton.addEventListener("click", async () => {
+      if (isRunning) {
+        isRunning = false;
+        clearTimeout(phaseTimeout);
+        breathingCircle.style.transform = "scale(1)";
+        circleProgress.style.transition = "none";
+        circleProgress.style.strokeDashoffset = `${circumference}`;
+        breathingText.textContent = "Pronto?";
+        startButton.textContent = "Iniciar Exercício";
+        pararGravacao();
+      } else {
+        if (predictionResultEl) predictionResultEl.style.display = 'none';
+        if (downloadContainer) downloadContainer.innerHTML = "";
+        
+        await iniciarGravacao();
+        isRunning = true;
+        phaseIndex = 0;
+        animatePhase(phases[phaseIndex]);
+        startButton.textContent = "Parar Exercício";
+      }
+    });
+  }
+  
   /**
    * Updates the main result cards with sensor data.
    */
   function updateResults(results) {
     const container = document.getElementById('analysisResults');
+    if(!container) return;
     container.innerHTML = '';
     const metrics = [
       { label: 'Batimentos Cardíacos', value: results['batimentos-cardiacos'] > 0 ? results['batimentos-cardiacos'].toFixed(0) : 'N/A', unit: 'BPM' },
       { label: 'Saturação', value: results['saturacao'] > 0 ? results['saturacao'].toFixed(1) : 'N/A', unit: '%' },
       { label: 'Temperatura Corporal', value: results['temperatura-corporal'] > 0 ? results['temperatura-corporal'].toFixed(2) : 'N/A', unit: '°C' },
-      { label: 'Temperatura Oximetro', value: results['temperatura-oximetro'] > 0 ? results['temperatura-oximetro'].toFixed(2) : 'N/A', unit: '°C' },
       { label: 'Nível de Ruído', value: results['som'] > 0 ? results['som'].toFixed(0) : 'N/A', unit: 'ADC' },
     ];
     metrics.forEach(metric => {
@@ -176,18 +151,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /**
-   * Generic function to create or update a chart.
+   * Generic function to create or update a chart efficiently.
    */
   function createOrUpdateChart(chartId, config) {
     const ctx = document.getElementById(chartId)?.getContext('2d');
     if (!ctx) {
-      console.warn(`Canvas com ID ${chartId} não encontrado.`);
+      // console.warn(`Canvas com ID ${chartId} não encontrado.`);
       return;
     }
+
     if (charts[chartId]) {
-      charts[chartId].destroy();
+      // Atualiza dados e opções do gráfico existente
+      charts[chartId].data.labels = config.data.labels;
+      charts[chartId].data.datasets = config.data.datasets;
+      charts[chartId].options = config.options;
+      charts[chartId].update('none'); // Sem animação para atualizações rápidas
+    } else {
+      // Cria um novo gráfico
+      charts[chartId] = new Chart(ctx, config);
     }
-    charts[chartId] = new Chart(ctx, config);
   }
 
   /**
@@ -195,10 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
    */
   function showNoDataMessage(chartId) {
     const canvas = document.getElementById(chartId);
-    if (!canvas) {
-      console.warn(`Canvas com ID ${chartId} não encontrado.`);
-      return;
-    }
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (charts[chartId]) {
       charts[chartId].destroy();
@@ -209,17 +188,30 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#999';
-    ctx.font = '16px sans-serif';
+    ctx.font = '16px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif';
     ctx.fillText('Dados insuficientes para exibir o gráfico', canvas.width / 2, canvas.height / 2);
     ctx.restore();
   }
 
   /**
-   * Renders all analysis charts, with checks for data availability and timestamp.
+   * Converts a timestamp to a relative time string (e.g., "X seconds ago").
    */
-  function renderAnalysisCharts(analysisData, timestamp) {
+  function formatRelativeTime(timestamp) {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffSeconds = (now - time) / 1000;
+    if (diffSeconds < 60) return `${Math.round(diffSeconds)}s atrás`;
+    return time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }
+
+  /**
+   * Renders all analysis charts with improved time axis and fixed Y-axis limits.
+   */
+  function renderAnalysisCharts(analysisData) {
     if (!analysisData || !analysisData.charts) {
-      Object.keys(charts).forEach(showNoDataMessage);
+      Object.keys(charts).forEach(key => {
+        if (key !== 'weeklyCoughChart') showNoDataMessage(key);
+      });
       return;
     }
 
@@ -227,33 +219,73 @@ document.addEventListener('DOMContentLoaded', () => {
     const commonOptions = {
       responsive: true,
       maintainAspectRatio: false,
-      animation: { duration: 400 },
+      animation: { duration: 0 }, // Desativa animações para atualizações rápidas
+      plugins: { 
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            title: (tooltipItems) => {
+              return formatRelativeTime(tooltipItems[0].label);
+            }
+          }
+        }
+      }
+    };
+
+    const timeSeriesOptions = {
+      ...commonOptions,
+      scales: {
+        x: {
+          type: 'time',
+          time: {
+            unit: 'second',
+            displayFormats: { second: 'HH:mm:ss' },
+            tooltipFormat: 'HH:mm:ss'
+          },
+          title: { display: true, text: 'Tempo' },
+          ticks: {
+            source: 'data',
+            maxRotation: 0,
+            autoSkip: true,
+            callback: function(value, index, values) {
+              return formatRelativeTime(value);
+            }
+          }
+        },
+        y: { title: { display: true } }
+      }
+    };
+
+    // Y-axis limits for each chart
+    const yAxisLimits = {
+      ppgChart: { min: -150, max: 150, title: 'Amplitude Filtrada' },
+      respirationChart: { min: -100, max: 200, title: 'Amplitude Modulada' },
+      soundChart: { min: 0, max: 4000, title: 'Amplitude do ADC' },
+      motionChart: { min: 0, max: 60, title: 'Magnitude (Acel. e Rotação)' },
+      piezoChart: { min: 0, max: 5000, title: 'Amplitude do Sinal' }
     };
 
     // 1. PPG Chart
-    if (chartData.ppg?.signal?.length > 0 && chartData.time_axis?.length > 0) {
-      const ppgSignalData = chartData.time_axis.map((t, i) => ({
-        x: t,
-        y: chartData.ppg.signal[i] || 0
-      }));
-      const ppgPeaksData = chartData.ppg.peaks_time.map((t, i) => ({
-        x: t,
-        y: chartData.ppg.peaks_value[i] || 0
-      }));
+    if (chartData.ppg?.signal?.length > 1) {
       const ppgConfig = {
         type: 'line',
         data: {
           datasets: [
-            { label: `Sinal PPG Filtrado`, data: ppgSignalData, borderColor: '#FF6F61', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
-            { type: 'scatter', label: `Batimentos Detectados}`, data: ppgPeaksData, backgroundColor: '#D32F2F', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: 'Sinal PPG Filtrado', data: chartData.ppg.signal, borderColor: '#FF6F61', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+            { type: 'scatter', label: 'Batimentos Detectados', data: chartData.ppg.peaks, backgroundColor: '#D32F2F', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
           ]
         },
-        options: {
-          ...commonOptions,
-          scales: {
-            x: { type: 'linear', title: { display: true, text: 'Tempo (s)' } },
-            y: { title: { display: true, text: 'Amplitude Filtrada' } }
-          }
+        options: { 
+          ...timeSeriesOptions, 
+          scales: { 
+            ...timeSeriesOptions.scales, 
+            y: { 
+              ...timeSeriesOptions.scales.y, 
+              title: { ...timeSeriesOptions.scales.y.title, text: yAxisLimits.ppgChart.title },
+              min: yAxisLimits.ppgChart.min,
+              max: yAxisLimits.ppgChart.max
+            } 
+          } 
         }
       };
       createOrUpdateChart('ppgChart', ppgConfig);
@@ -262,28 +294,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 2. Respiration Chart
-    if (chartData.respiration?.signal?.length > 0 && chartData.respiration?.time_axis?.length > 0) {
-      const respSignalData = chartData.respiration.time_axis.map((t, i) => ({
-        x: t,
-        y: chartData.respiration.signal[i] || 0
-      }));
-      const respPeaksData = chartData.respiration.peaks_time.map((t, i) => ({
-        x: t,
-        y: chartData.respiration.peaks_value[i] || 0
-      }));
+    if (chartData.respiration?.signal?.length > 1) {
       const respConfig = {
         type: 'line',
         data: {
           datasets: [
-            { label: `Sinal Respiratório`, data: respSignalData, borderColor: '#2196F3', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
-            { type: 'scatter', label: `Picos Respiratórios`, data: respPeaksData, backgroundColor: '#1976D2', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: 'Sinal Respiratório Derivado', data: chartData.respiration.signal, borderColor: '#2196F3', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+            { type: 'scatter', label: 'Picos Respiratórios', data: chartData.respiration.peaks, backgroundColor: '#1976D2', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
           ]
         },
         options: {
           ...commonOptions,
           scales: {
             x: { type: 'linear', title: { display: true, text: 'Tempo (s)' } },
-            y: { title: { display: true, text: 'Amplitude Modulada' } }
+            y: { 
+              title: { display: true, text: yAxisLimits.respirationChart.title },
+              min: yAxisLimits.respirationChart.min,
+              max: yAxisLimits.respirationChart.max
+            }
           }
         }
       };
@@ -293,34 +321,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 3. Sound Chart
-    if (chartData.sound?.signal?.length > 0 && chartData.time_axis?.length > 0) {
-      const soundSignalData = chartData.time_axis.map((t, i) => ({
-        x: t,
-        y: chartData.sound.signal[i] || 0
-      }));
-      const soundThresholdData = chartData.time_axis.map(t => ({
-        x: t,
-        y: chartData.sound.threshold || 0
-      }));
-      const soundPeaksData = chartData.sound.peaks_time.map((t, i) => ({
-        x: t,
-        y: chartData.sound.peaks_value[i] || 0
-      }));
+    if (chartData.sound?.signal?.length > 1) {
       const soundConfig = {
         type: 'line',
         data: {
           datasets: [
-            { label: `Sinal do Microfone`, data: soundSignalData, borderColor: '#4CAF50', borderWidth: 1.5, pointRadius: 0 },
-            { label: `Limiar de Som`, data: soundThresholdData, borderColor: '#F44336', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
-            { type: 'scatter', label: `Picos de Som`, data: soundPeaksData, backgroundColor: '#2E7D32', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: 'Sinal do Microfone', data: chartData.sound.signal, borderColor: '#4CAF50', borderWidth: 1.5, pointRadius: 0 },
+            { label: 'Limiar de Som', data: chartData.sound.signal.map(p => ({ x: p.x, y: chartData.sound.threshold })), borderColor: '#F44336', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
+            { type: 'scatter', label: 'Picos de Som', data: chartData.sound.peaks, backgroundColor: '#2E7D32', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
           ]
         },
-        options: {
-          ...commonOptions,
-          scales: {
-            x: { type: 'linear', title: { display: true, text: 'Tempo (s)' } },
-            y: { title: { display: true, text: 'Amplitude do ADC' } }
-          }
+        options: { 
+          ...timeSeriesOptions, 
+          scales: { 
+            ...timeSeriesOptions.scales, 
+            y: { 
+              ...timeSeriesOptions.scales.y, 
+              title: { ...timeSeriesOptions.scales.y.title, text: yAxisLimits.soundChart.title },
+              min: yAxisLimits.soundChart.min,
+              max: yAxisLimits.soundChart.max
+            } 
+          } 
         }
       };
       createOrUpdateChart('soundChart', soundConfig);
@@ -329,49 +350,71 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 4. Motion Chart
-    if (chartData.motion?.signal?.length > 0 && chartData.time_axis?.length > 0) {
-      const motionSignalData = chartData.time_axis.map((t, i) => ({
-        x: t,
-        y: chartData.motion.signal[i] || 0
-      }));
-      const motionThresholdData = chartData.time_axis.map(t => ({
-        x: t,
-        y: chartData.motion.threshold || 0
-      }));
-      const motionPeaksData = chartData.motion.peaks_time.map((t, i) => ({
-        x: t,
-        y: chartData.motion.peaks_value[i] || 0
-      }));
+    if (chartData.motion?.signal?.length > 1) {
       const motionConfig = {
         type: 'line',
         data: {
           datasets: [
-            { label: `Magnitude da Aceleração`, data: motionSignalData, borderColor: '#9C27B0', borderWidth: 1.5, pointRadius: 0 },
-            { label: `Limiar de Movimento`, data: motionThresholdData, borderColor: '#FF9800', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
-            { type: 'scatter', label: `Solavancos Detectados`, data: motionPeaksData, backgroundColor: '#F57C00', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: 'Intensidade do Movimento (Acel.)', data: chartData.motion.signal, borderColor: '#6a5acd', backgroundColor: 'rgba(106, 90, 205, 0.1)', fill: true, borderWidth: 2, pointRadius: 0, tension: 0.3 },
+            { label: 'Intensidade da Rotação (Giro.)', data: chartData.motion.rotation_signal, borderColor: '#00a896', fill: false, borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+            { label: 'Limiar de Detecção de Tosse', data: chartData.motion.signal.map(p => ({ x: p.x, y: chartData.motion.threshold })), borderColor: '#aaaaaa', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
+            { type: 'scatter', label: 'Picos de Tosse / Mov. Brusco', data: chartData.motion.peaks, backgroundColor: '#dc3545', pointStyle: 'crossRot', radius: 7, borderWidth: 2 }
           ]
         },
-        options: {
-          ...commonOptions,
-          scales: {
-            x: { type: 'linear', title: { display: true, text: 'Tempo (s)' } },
-            y: { title: { display: true, text: 'Magnitude (g)' } }
-          }
+        options: { 
+          ...timeSeriesOptions, 
+          scales: { 
+            ...timeSeriesOptions.scales, 
+            y: { 
+              ...timeSeriesOptions.scales.y, 
+              title: { ...timeSeriesOptions.scales.y.title, text: yAxisLimits.motionChart.title },
+              min: yAxisLimits.motionChart.min,
+              max: yAxisLimits.motionChart.max
+            } 
+          } 
         }
       };
       createOrUpdateChart('motionChart', motionConfig);
     } else {
       showNoDataMessage('motionChart');
     }
+
+    // 5. Piezo Chart
+    if (chartData.piezo?.signal?.length > 1) {
+      const piezoConfig = {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Sinal Piezo (Mov. Torácico)', data: chartData.piezo.signal, borderColor: '#FF9800', borderWidth: 1.5, pointRadius: 0 },
+            { label: 'Limiar de Vibração', data: chartData.piezo.signal.map(p => ({ x: p.x, y: chartData.piezo.threshold })), borderColor: '#F44336', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
+            { type: 'scatter', label: 'Picos de Vibração', data: chartData.piezo.peaks, backgroundColor: '#EF6C00', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+          ]
+        },
+        options: { 
+          ...timeSeriesOptions, 
+          scales: { 
+            ...timeSeriesOptions.scales, 
+            y: { 
+              ...timeSeriesOptions.scales.y, 
+              title: { ...timeSeriesOptions.scales.y.title, text: yAxisLimits.piezoChart.title },
+              min: yAxisLimits.piezoChart.min,
+              max: yAxisLimits.piezoChart.max
+            } 
+          } 
+        }
+      };
+      createOrUpdateChart('piezoChart', piezoConfig);
+    } else {
+      showNoDataMessage('piezoChart');
+    }
   }
 
-    // 5. Weekly Cough Chart
+  // 6. Weekly Cough Chart
   function renderWeeklyCoughChart(chartData) {
     if (!chartData || !chartData.labels || !chartData.data) {
       showNoDataMessage('weeklyCoughChart');
       return;
     }
-  
     const config = {
       type: 'bar',
       data: {
@@ -387,20 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        scales: {
-          y: {
-            beginAtZero: true,
-            title: {
-              display: true,
-              text: 'Contagem Total de Tosses'
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            display: false
-          }
-        }
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Contagem Total de Tosses' } } },
+        plugins: { legend: { display: false } }
       }
     };
     createOrUpdateChart('weeklyCoughChart', config);
@@ -408,6 +439,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateTriggers(triggers) {
     const triggersEl = document.getElementById('currentTriggers');
+    if (!triggersEl) return;
     triggersEl.innerHTML = '';
     const list = triggers && triggers.length ? triggers : ['Nenhum gatilho crítico no momento.'];
     list.forEach(txt => {
@@ -437,8 +469,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function initializeCalendar(events) {
-    if (calendar) return;
     const calendarEl = document.getElementById('inhalerCalendar');
+    if (calendar || !calendarEl) return;
     calendar = new FullCalendar.Calendar(calendarEl, {
       initialView: 'dayGridMonth',
       locale: 'pt-br',
@@ -457,49 +489,52 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loadData() {
-    console.log("🔄 Carregando novos dados...");
     fetch('/api/data')
       .then(r => {
         if (!r.ok) throw new Error(`Falha na API: ${r.statusText}`);
         return r.json();
       })
       .then(data => {
-        console.log("✅ Dados recebidos:", data);
         if (data.env_data && !data.env_data.error) {
           updateResults(data.env_data.analysis.results);
-          renderAnalysisCharts(data.env_data.analysis, data.env_data.timestamp);
+          renderAnalysisCharts(data.env_data.analysis);
           updateTriggers(data.env_data.triggers);
-          // --- MODIFICAÇÃO: Chamar a função para renderizar o novo gráfico ---
           renderWeeklyCoughChart(data.env_data.weekly_cough_data); 
         } else {
-          console.warn("Dados de análise não encontrados ou erro na API:", data.env_data?.error || 'Desconhecido');
-          updateResults({
-            // ... (objeto de resultados zerado, sem alterações)
-          });
-          renderAnalysisCharts(null, null);
-          // --- MODIFICAÇÃO: Mostrar mensagem de "sem dados" no novo gráfico também ---
+          updateResults({ 'batimentos-cardiacos': 0, 'saturacao': 0, 'temperatura-corporal': 0, 'som': 0 });
+          renderAnalysisCharts(null);
           renderWeeklyCoughChart(null); 
           updateTriggers([data.env_data?.error || 'Erro ao carregar dados.']);
         }
-        initializeCalendar(data.usage_events || []);
+        
         if (calendar) {
           calendar.removeAllEvents();
           calendar.addEventSource(data.usage_events || []);
+        } else {
+          initializeCalendar(data.usage_events || []);
         }
       })
       .catch(err => {
         console.error("❌ Erro ao carregar dados:", err);
-        updateResults({
-          // ... (objeto de resultados zerado, sem alterações)
-        });
-        renderAnalysisCharts(null, null);
-        // --- MODIFICAÇÃO: Mostrar mensagem de "sem dados" no novo gráfico em caso de erro ---
-        renderWeeklyCoughChart(null);
+        const allChartIds = Object.keys(charts);
+        allChartIds.forEach(showNoDataMessage);
         updateTriggers([`Erro de conexão: ${err.message}`]);
       });
   }
 
-  // --- ALTERAÇÃO 1: APLICAR LAYOUT 2x2 AOS GRÁFICOS ---
+  // Aplica layout de grade aos gráficos
+  try {
+    const chartsContainer = document.querySelector('.charts-container');
+    if (chartsContainer) {
+      chartsContainer.style.display = 'grid';
+      chartsContainer.style.gridTemplateColumns = '1fr 1fr';
+      chartsContainer.style.gap = '20px';
+    }
+  } catch (e) {
+    console.error("Falha ao tentar aplicar o layout de grade aos gráficos.", e);
+  }
+
+  // --- APLICAR LAYOUT 2x2 AOS GRÁFICOS ---
   try {
     const firstChart = document.getElementById('ppgChart');
     if (firstChart && firstChart.parentElement && firstChart.parentElement.parentElement) {
@@ -512,22 +547,22 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error("Falha ao tentar aplicar o layout de grade aos gráficos.", e);
   }
 
-  // Inicia o carregamento de dados
+  // Inicia o carregamento de dados e define a atualização periódica
   loadData();
-  // --- ALTERAÇÃO 2: ATUALIZAR DADOS A CADA 5 SEGUNDOS ---
-  setInterval(loadData, 5000);
+  setInterval(loadData, 2000); // Reduzido de 5000ms para 2000ms para atualizações mais frequentes
 
-  // Lógica da seção de gráficos recolhível (sem alteração)
+  // Lógica da seção de gráficos recolhível
   const chartsSection = document.querySelector('.charts-section');
   const toggleBtn = document.querySelector('.toggle-charts-btn');
   const header = document.querySelector('.charts-header');
   function toggleCharts(e) {
     e.stopPropagation();
+    if(!chartsSection) return;
     const isCollapsed = chartsSection.classList.toggle('collapsed');
-    toggleBtn.setAttribute('aria-expanded', !isCollapsed);
+    if(toggleBtn) toggleBtn.setAttribute('aria-expanded', !isCollapsed);
   }
-  toggleBtn.addEventListener('click', toggleCharts);
-  header.addEventListener('click', (e) => {
+  if(toggleBtn) toggleBtn.addEventListener('click', toggleCharts);
+  if(header) header.addEventListener('click', (e) => {
     if (e.target !== toggleBtn && !toggleBtn.contains(e.target)) {
       toggleCharts(e);
     }

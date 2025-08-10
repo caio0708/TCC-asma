@@ -1028,3 +1028,18 @@ canvas {
     font-size: 1rem;
     color: #4CAF50; /* Verde */
 }
+
+/* --- Estilos para a Grade de Gráficos --- */
+
+/* 1. O Contêiner Principal (a grade) */
+.charts-grid {
+  display: grid;
+  
+  /* Define a grade com 2 colunas de largura igual.
+     Isso é o que cria o layout 2 por linha. */
+  grid-template-columns: repeat(2, 1fr);
+  
+  /* Adiciona um espaçamento (gap) entre os cards */
+  gap: 24px; /* Ajuste o valor conforme sua preferência */
+}
+
