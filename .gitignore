@@ -6,8 +6,6 @@ __pycache__/
 *.pyc
 
 # Arquivos gerados e modelos
-faiss_index/
-model_artifacts/
 uploads/
 
 # Arquivos de ambiente (se você usar)
