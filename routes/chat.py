@@ -69,7 +69,7 @@ def analisar_temperatura(temp):
 
 # --- IA Especialista (RAG otimizado) ---
 if not os.path.exists(FAISS_INDEX_PATH):
-    raise FileNotFoundError(f"Índice '{FAISS_INDEX_PATH}' não encontrado. Execute 'criar_base_de_conhecimento.py'.")
+    raise FileNotFoundError(f"Índice '{FAISS_INDEX_PATH}' não encontrado. Execute 'fontes.py'.")
 
 embeddings = OllamaEmbeddings(model="nomic-embed-text")
 vectorstore = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)

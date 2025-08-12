@@ -568,3 +568,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
+
+function createOrUpdateChart(chartId, config) {
+  const ctx = document.getElementById(chartId)?.getContext('2d');
+  if (!ctx) return;
+
+  if (charts[chartId]) {
+    // Atualiza sem recriar para evitar erro de "Canvas is already in use"
+    charts[chartId].data.labels = config.data.labels || [];
+    charts[chartId].data.datasets = config.data.datasets || [];
+    charts[chartId].options = config.options || {};
+    charts[chartId].update('none'); // atualização rápida sem animação
+  } else {
+    charts[chartId] = new Chart(ctx, config);
+  }
+}

@@ -15,7 +15,8 @@ from routes.cough_detector import live_cough_counter, classify_cough, features
 sensores_bp = Blueprint('sensores', __name__)
 
 # Configurações
-DB_PATH = r'E:\Dev\TCC-asma\ia\dados\sensores.db'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'dados', 'sensores.db')
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 sensor_lock = threading.Lock()
 
@@ -206,8 +207,10 @@ def incrementa_contador_tosse():
 def iniciar_detector_tosse():
     try:
         print("Carregando modelo de detecção de tosse...")
-        model_path = r'E:\Dev\TCC-asma\ia\model_artifacts\cough_classifier'
-        scaler_path = r'E:\Dev\TCC-asma\ia\model_artifacts\cough_classification_scaler'
+
+        # Monta os caminhos para os arquivos do modelo
+        model_path = os.path.join(BASE_DIR, 'model_artifacts', 'cough_classifier')
+        scaler_path = os.path.join(BASE_DIR, 'model_artifacts', 'cough_classification_scaler')
         
         model = pickle.load(open(model_path, 'rb'))
         scaler = pickle.load(open(scaler_path, 'rb'))

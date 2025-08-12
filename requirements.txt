@@ -1,6 +1,7 @@
 langchain
 langchain-ollama
 langchain-chroma
+langchain-community
 beautifulsoup4
 flask
 cachetools
@@ -12,9 +13,11 @@ docling
 jsonify
 pyaudio
 
+# xgboost deve estar na versão 0.90
+
 # pip install -r requirements.txt
 
-# Salvar no GitHub: git add .    git commit -m "grafico conta tosse ok"      git push 
+# Salvar no GitHub: git add .    git commit -m "piezo+sqlite ok"      git push 
 
 # venv\Scripts\activate
 

@@ -234,6 +234,7 @@ def live_cough_counter(model, scaler, update_callback, window_duration=0.4, thre
 
     p = pyaudio.PyAudio()
     stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
+    #AQUI QUE MUDA O MICROFONE PARA DETECTAR
 
     print(">>> Iniciando detecção de tosse em tempo real...")
     

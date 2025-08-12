@@ -1,4 +1,3 @@
-// Arquivo: chat.js (Versão Corrigida e Completa)
 
 // Funções enviarPergunta, adicionarMensagem, removerMensagem (sem alterações)
 async function enviarPergunta(pergunta) {
