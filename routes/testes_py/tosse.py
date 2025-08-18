@@ -6,9 +6,7 @@ from scipy.signal import butter, filtfilt
 import pickle
 import logging
 import pyaudio
-
-# Configurar logging
-logging.basicConfig(level=logging.DEBUG)
+import time
 
 class features:
     n_std_dev = 1
@@ -113,7 +111,7 @@ class features:
         spec_skewness = np.sum(((freqs-spec_centroid)**3)*magnitudes) / ((spec_spread**3)*sum_mag)
         spec_kurtosis =  np.sum(((freqs-spec_centroid)**4)*magnitudes) / ((spec_spread**4)*sum_mag)
         p=2
-        spec_bandwidth = (np.sum(magnitudes*(freqs-spec_centroid)**p))**(1/p)
+        spec_bandwidth = (np.sum(magnitudes*(np.abs(freqs-spec_centroid))**p))**(1/p)
 
         return np.array([spec_centroid, spec_rolloff, spec_spread, spec_skewness, spec_kurtosis, spec_bandwidth]), names
     
@@ -191,10 +189,21 @@ class features:
         feat_names = [f'PSD_{lf}-{hf}' for lf, hf in self.FREQ_CUTS]
         return feat, feat_names
 
+def preprocess_cough(x, fs, cutoff=6000, normalize=True, filter_=True, downsample=False):
+    """Normalize and lowpass filter cough samples"""
+    if len(x.shape) > 1:
+        x = np.mean(x, axis=1)
+    if normalize:
+        x = x / (np.max(np.abs(x)) + 1e-17)
+    if filter_:
+        b, a = butter(4, cutoff / (fs / 2), btype='lowpass')
+        x = filtfilt(b, a, x)
+    return np.float32(x), fs
+
 def classify_cough(x, fs, model, scaler):
     """Classify whether an inputted signal is a cough or not using filtering, feature extraction, and ML classification"""
     try: 
-        x, fs = preprocess_cough(x, fs, cutoff=6000)  # Ajustado para 6000 Hz
+        x, fs = preprocess_cough(x, fs, cutoff=6000)
         data = (fs, x)
         FREQ_CUTS = [(0,200),(300,425),(500,650),(950,1150),(1400,1800),(2300,2400),(2850,2950),(3800,3900)]
         features_fct_list = ['EEPD','ZCR','RMSP','DF','spectral_features','SF_SSTD','SSL_SD','MFCC','CF','LGTH','PSD']
@@ -215,67 +224,48 @@ def classify_cough(x, fs, model, scaler):
         logging.error(f"Erro na extração de características: {e}")
         return 0
 
-def preprocess_cough(x, fs, cutoff=6000, normalize=True, filter_=True, downsample=False):
-    """Normalize and lowpass filter cough samples"""
-    if len(x.shape) > 1:
-        x = np.mean(x, axis=1)
-    if normalize:
-        x = x / (np.max(np.abs(x)) + 1e-17)
-    if filter_:
-        b, a = butter(4, cutoff / (fs / 2), btype='lowpass')
-        x = filtfilt(b, a, x)
-    return np.float32(x), fs
-
-def live_cough_counter(model, scaler, window_duration=0.4, threshold=0.4):
-    # Parâmetros de áudio
+# A função agora aceita um 'update_callback' para enviar a contagem de tosse
+def live_cough_counter(model, scaler, update_callback, window_duration=0.4, threshold=0.4):
     FORMAT = pyaudio.paFloat32
     CHANNELS = 1
-    RATE = 16000  # Taxa de amostragem
-    CHUNK = int(RATE * window_duration)  # Tamanho do bloco de áudio
+    RATE = 16000
+    CHUNK = int(RATE * window_duration)
 
-    # Inicializar PyAudio
     p = pyaudio.PyAudio()
+    stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
+    #AQUI QUE MUDA O MICROFONE PARA DETECTAR
 
-    # Abrir stream
-    stream = p.open(format=FORMAT,
-                    channels=CHANNELS,
-                    rate=RATE,
-                    input=True,
-                    frames_per_buffer=CHUNK)
-
-    print("Capturando áudio em tempo real... Pressione Ctrl+C para parar.")
-
-    cough_count = 0
+    print(">>> Iniciando detecção de tosse em tempo real...")
     
+    # Adicionamos um debounce simples para não contar a mesma tosse várias vezes
+    time_of_last_cough = 0
+    debounce_seconds = 1 # Não contar tosses dentro de 1 segundos uma da outra
+
     try:
+        # A contagem de tosse será mantida pela função que chama esta, mas podemos inicializar aqui
+        # para o caso de precisarmos.
+        # No nosso caso, o valor será mantido em 'sensores.py'.
         while True:
-            # Ler dados do stream
             data = stream.read(CHUNK)
-            # Converter para array numpy
             x = np.frombuffer(data, dtype=np.float32)
-            # Classificar o segmento
             prob = classify_cough(x, RATE, model, scaler)
-            if prob >= threshold:
-                cough_count += 1
-                print(f"Tosse detectada! Probabilidade: {prob:.2f}")
+            
+            current_time = time.time()
+            if prob >= threshold and (current_time - time_of_last_cough) > debounce_seconds:
+                time_of_last_cough = current_time
+                print(f"*** TOSSE DETECTADA (Prob: {prob:.2f}) ***")
+                # Chama a função de callback para atualizar o sensor
+                update_callback()
             else:
-                print(f"Sem tosse. Probabilidade: {prob:.2f}")
+                # Opcional: log para mostrar que está rodando
+                if prob < threshold:
+                    print(f"Analisando... (Prob: {prob:.2f})", end='\r')
+
+
     except KeyboardInterrupt:
         print("\nParando a captura de áudio.")
     finally:
         stream.stop_stream()
         stream.close()
         p.terminate()
-        print(f"Total de tosses detectadas: {cough_count}")
-
-def main():
-    model_path = r'E:\Dev\TCC-asma\ia\model_artifacts\cough_classifier'
-    scaler_path = r'E:\Dev\TCC-asma\ia\model_artifacts\cough_classification_scaler'
-
-    model = pickle.load(open(model_path, 'rb'))
-    scaler = pickle.load(open(scaler_path, 'rb'))
-
-    live_cough_counter(model, scaler)
-
-if __name__ == "__main__":
-    main()
+        print(">>> Detecção de tosse finalizada.")

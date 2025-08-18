@@ -1,6 +1,4 @@
-Data,Hora,Tiredness,Dry-Cough,Difficulty-in-Breathing,Sore-Throat,None_Sympton,Pains,Nasal-Congestion,Runny-Nose,None_Experiencing,Age_0-9,Age_10-19,Age_20-24,Age_25-59,Age_60+,Gender_Female,Gender_Male,Username
-2025-05-29,08:00,1,1,1,1,0,1,1,1,0,0,0,0,1,0,0,1,usuario_alta
-2025-05-29,08:05,0,0,0,0,1,0,0,0,1,0,0,1,0,0,1,0,usuario_baixa
-2025-07-16,14:15,1,1,1,1,0,0,1,1,0,0,0,1,0,0,0,1,caio
-2025-08-02,14:14,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,caio
-2025-08-02,14:15,1,1,1,1,0,1,1,1,0,0,0,1,0,0,0,1,caio
+Data,Hora,Age,Gender,BMI,Smoking_Status,Family_History,Allergies,Air_Pollution_Level,Physical_Activity_Level,Occupation_Type,Comorbidities,Medication_Adherence,Peak_Expiratory_Flow,FeNO_Level,Number_of_ER_Visits,Username
+2025-08-14,23:44,22,Masculino,31.0,0,0,1,2,2,0,1,1,500,1,2,fe
+2025-08-14,23:45,22,Masculino,26.0,2,0,0,1,0,0,0,0,300,0,0,fe
+2025-08-14,23:45,22,Masculino,20.0,2,0,3,1,0,1,2,1,400,0,0,fe

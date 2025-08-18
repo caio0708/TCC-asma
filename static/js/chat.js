@@ -1,4 +1,3 @@
-
 // Funções enviarPergunta, adicionarMensagem, removerMensagem (sem alterações)
 async function enviarPergunta(pergunta) {
   if (!pergunta.trim()) return;
@@ -60,7 +59,6 @@ function removerMensagem(id) {
   if (el) el.remove();
 }
 
-
 // Função para atualizar os dados dos sensores (mantida como no seu original)
 function atualizarSensores() {
     let dadosAtuais = {};
@@ -72,7 +70,7 @@ function atualizarSensores() {
             })
             .then(data => {
                 const mapeamento = {
-                    "frequencia-respiratoria": "sensor-1",
+                    "batimentos-cardiacos": "sensor-1",
                     "saturacao": "sensor-2",
                     "umidade": "sensor-3",
                     "temperatura-corporal": "sensor-4"
@@ -97,7 +95,6 @@ function atualizarSensores() {
     setInterval(atualizar, 5000);
 }
 
-
 async function atualizarDadosAmbientais() {
   console.log("Buscando dados ambientais...");
   try {
@@ -110,14 +107,12 @@ async function atualizarDadosAmbientais() {
       throw new Error(data.error);
     }
 
-    // ✅ CORREÇÃO: A chave para qualidade do ar agora é "AQI", exatamente como o backend envia.
     const cardMapping = {
       "AQI": "qualidade-ar-card",
       "Umidade": "umidade-card",
       "Temperatura": "clima-card"
     };
     
-    // Zera o estado visual dos cards para o usuário ver que está atualizando
     Object.values(cardMapping).forEach(cardId => {
       const cardElement = document.getElementById(cardId);
       if (cardElement) {
@@ -126,10 +121,9 @@ async function atualizarDadosAmbientais() {
       }
     });
 
-    // Preenche os cards com os dados recebidos
     data.sugestoes_ambientais.forEach(sugestao => {
       const cardId = cardMapping[sugestao.condicao];
-      if (!cardId) return; // Pula dados que não têm um card correspondente (ex: PM2.5 se não houver card para ele)
+      if (!cardId) return; 
 
       const cardElement = document.getElementById(cardId);
       if (!cardElement) return;
@@ -139,7 +133,6 @@ async function atualizarDadosAmbientais() {
         pElement.innerHTML = `<strong>${sugestao.valor}</strong> - ${sugestao.recomendacao}`;
       }
 
-      // Reseta as classes de cor e aplica a correta
       cardElement.className = 'insight-card'; 
       switch (sugestao.emoji) {
         case "🟢": cardElement.classList.add("positive"); break;
@@ -186,39 +179,10 @@ async function carregarSugestoesIniciais() {
 
 // --- INICIALIZAÇÃO DA PÁGINA ---
 window.addEventListener('DOMContentLoaded', () => {
-  // Carrega as sugestões de perguntas
   carregarSugestoesIniciais();
-
-  // ✅ CORREÇÃO: Chama as funções de atualização de dados imediatamente ao carregar a página
   atualizarDadosAmbientais(); 
   atualizarSensores();
-
-  // Configura as atualizações automáticas (timers)
-  setInterval(atualizarDadosAmbientais, 300000); // A cada 5 minutos
+  setInterval(atualizarDadosAmbientais, 300000);
 });
 
-
-//designnn
-function renderBotMessage(content) {
-  const chatContainer = document.getElementById('chatContainer');
-  
-  const messageElement = document.createElement('div');
-  messageElement.classList.add('bot-message');
-
-  messageElement.innerHTML = `
-    <div class="chat-bubble">
-      <div class="chat-header">
-        🤖 <strong>Assistente IA</strong>
-      </div>
-      <div class="chat-content">
-        ${content}
-      </div>
-      <div class="chat-footer">
-        <small>14:31</small>
-      </div>
-    </div>
-  `;
-
-  chatContainer.appendChild(messageElement);
-  chatContainer.scrollTop = chatContainer.scrollHeight;
-}
+// ✅ CORREÇÃO: Removida a função 'renderBotMessage' e a chave '}' extra que estavam aqui.

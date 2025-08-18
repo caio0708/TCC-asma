@@ -108,59 +108,94 @@
       <label>Selecione os sintomas presentes:</label>
       <div class="symptom-grid">
         <!-- Cada sintoma em card simples -->
-        <div>
-          <input type="hidden" name="Tiredness" value="0">
-          <input type="checkbox" id="Tiredness" name="Tiredness" value="1">
-          <label for="Tiredness">Cansaço</label>
+
+
+        <!-- CAMPOS NUMÉRICOS (INTEIROS) -->
+        <div class="form-grid">
+            <label for="Number_of_ER_Visits">Número de Visitas à Emergência</label>
+            <input type="number" id="Number_of_ER_Visits" name="Number_of_ER_Visits" min="0" step="1" required>
         </div>
 
-        <div>
-          <input type="hidden" name="Dry-Cough" value="0">
-          <input type="checkbox" id="Dry-Cough" name="Dry-Cough" value="1">
-          <label for="Dry-Cough">Tosse seca</label>
+        <!-- CAMPOS NUMÉRICOS (DECIMAIS/FLOATS) -->
+        <div class="form-grid">
+            <label for="BMI">IMC (BMI)</label>
+            <input type="number" id="BMI" name="BMI" step="0.1" min="15" max="45" required>
+        </div>
+        <div class="form-grid">
+            <label for="Medication_Adherence">Adesão à Medicação (0.0 a 1.0)</label>
+            <input type="number" id="Medication_Adherence" name="Medication_Adherence" step="0.1" min="0" max="1.0" required>
+        </div>
+        <div class="form-grid">
+            <label for="Peak_Expiratory_Flow">Pico de Fluxo Expiratório</label>
+            <input type="number" id="Peak_Expiratory_Flow" name="Peak_Expiratory_Flow" step="0.1" min="150" max="600" required>
+        </div>
+        <div class="form-grid">
+            <label for="FeNO_Level">Nível de FeNO</label>
+            <input type="number" id="FeNO_Level" name="FeNO_Level" step="0.1" min="5" max="64" required>
         </div>
 
-        <div>
-          <input type="hidden" name="Difficulty-in-Breathing" value="0">
-          <input type="checkbox" id="Difficulty-in-Breathing" name="Difficulty-in-Breathing" value="1">
-          <label for="Difficulty-in-Breathing">Dificuldade de respirar</label>
+        <!-- CAMPOS BINÁRIOS (SIM/NÃO) -->
+        <div class="form-grid">
+            <input type="hidden" name="Family_History" value="0">
+            <input type="checkbox" id="Family_History" name="Family_History" value="1">
+            <label for="Family_History" style="display: inline;">Possui Histórico Familiar?</label>
         </div>
 
-        <div>
-          <input type="hidden" name="Sore-Throat" value="0">
-          <input type="checkbox" id="Sore-Throat" name="Sore-Throat" value="1">
-          <label for="Sore-Throat">Dor de garganta</label>
+        <!-- CAMPOS CATEGÓRICOS (ESCOLHA ÚNICA) -->
+        <div class="form-grid">
+            <label for="Smoking_Status">Status de Tabagismo</label>
+            <select id="Smoking_Status" name="Smoking_Status" required>
+                <option value="Current">Fumante Atual</option>
+                <option value="Former">Ex-Fumante</option>
+                <option value="Never">Nunca Fumou</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Allergies">Alergias</label>
+            <select id="Allergies" name="Allergies" required>
+                <option value="None">Nenhuma</option>
+                <option value="Dust">Poeira</option>
+                <option value="Pets">Animais de Estimação</option>
+                <option value="Pollen">Pólen</option>
+                <option value="Multiple">Múltiplas</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Air_Pollution_Level">Nível de Poluição do Ar</label>
+            <select id="Air_Pollution_Level" name="Air_Pollution_Level" required>
+                <option value="High">Alto</option>
+                <option value="Moderate">Moderado</option>
+                <option value="Low">Baixo</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Physical_Activity_Level">Nível de Atividade Física</label>
+            <select id="Physical_Activity_Level" name="Physical_Activity_Level" required>
+                <option value="Sedentary">Sedentário</option>
+                <option value="Moderate">Moderado</option>
+                <option value="Active">Ativo</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Occupation_Type">Tipo de Ocupação</label>
+            <select id="Occupation_Type" name="Occupation_Type" required>
+                <option value="Indoor">Interna (Indoor)</option>
+                <option value="Outdoor">Externa (Outdoor)</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Comorbidities">Comorbidades</label>
+            <select id="Comorbidities" name="Comorbidities" required>
+                <option value="None">Nenhuma</option>
+                <option value="Diabetes">Diabetes</option>
+                <option value="Hypertension">Hipertensão</option>
+                <option value="Both">Ambas</option>
+            </select>
         </div>
 
-        <div>
-          <input type="hidden" name="None_Sympton" value="0">
-          <input type="checkbox" id="None_Sympton" name="None_Sympton" value="1">
-          <label for="None_Sympton">Sem sintomas principais</label>
-        </div>
 
-        <div>
-          <input type="hidden" name="Pains" value="0">
-          <input type="checkbox" id="Pains" name="Pains" value="1">
-          <label for="Pains">Dores</label>
-        </div>
 
-        <div>
-          <input type="hidden" name="Nasal-Congestion" value="0">
-          <input type="checkbox" id="Nasal-Congestion" name="Nasal-Congestion" value="1">
-          <label for="Nasal-Congestion">Congestão nasal</label>
-        </div>
 
-        <div>
-          <input type="hidden" name="Runny-Nose" value="0">
-          <input type="checkbox" id="Runny-Nose" name="Runny-Nose" value="1">
-          <label for="Runny-Nose">Coriza</label>
-        </div>
-
-        <div>
-          <input type="hidden" name="None_Experiencing" value="0">
-          <input type="checkbox" id="None_Experiencing" name="None_Experiencing" value="1">
-          <label for="None_Experiencing">Sem sintomas em curso</label>
-        </div>
       </div>
     </div>
 

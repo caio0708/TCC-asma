@@ -1,10 +1,10 @@
-# painel.py (CORRIGIDO)
-
 from flask import Blueprint, render_template, session, request, redirect, flash, url_for, jsonify # Adicionar jsonify
 from datetime import datetime, timedelta
 import os
 import csv
 from routes.crises import get_user_prediction
+
+from routes.api import get_air_quality, get_user_location
 
 painel_bp = Blueprint('painel', __name__)
 
@@ -81,6 +81,22 @@ def _get_dashboard_data(username='Visitante'):
     """Função centralizada para buscar todos os dados do painel."""
     hora_atual = datetime.now().strftime("%H:%M")
 
+    # --- CORREÇÃO APLICADA AQUI ---
+    # Chamamos a função de predição e obtemos todos os seus retornos
+    resultado_pred, erro_pred, acuracia_pred, data_pred, hora_pred_api = get_user_prediction(username)
+
+    # Verificamos se houve um erro. Se não houve, usamos os valores retornados.
+    # Se houve um erro, usamos valores padrão e mostramos o erro no console.
+    if erro_pred is None:
+        resultado = resultado_pred
+        acuracia = acuracia_pred
+        hora_predicao = hora_pred_api if isinstance(hora_pred_api, str) and hora_pred_api else hora_atual
+    else:
+        print(f"Aviso do painel: Não foi possível obter a predição. Motivo: {erro_pred}")
+        resultado = 0  # Valor padrão para 'sem crise'
+        acuracia = acuracia_pred # Ainda usamos a acurácia do modelo, que é carregada independentemente
+        hora_predicao = hora_atual
+
     def to_float(value, default=0.0):
         try: return float(value)
         except (ValueError, TypeError): return default
@@ -104,18 +120,25 @@ def _get_dashboard_data(username='Visitante'):
     humidity = to_float(latest_sensor_data.get("umidade"))
     nivel_oxi = to_float(latest_sensor_data.get("saturacao"))
     cont_tosse = to_float(latest_sensor_data.get("contagem-tosse"))
-    aqi = to_float(latest_sensor_data.get("qualidade-ar-aqi"))
-    pm2_5 = to_float(latest_sensor_data.get("qualidade-ar-pm25"))
-    pm10 = to_float(latest_sensor_data.get("qualidade-ar-pm10"))
 
-    resultado, acuracia, hora_predicao = 0, 0.0, hora_atual
+    lat, lon, city = get_user_location()
+    API_KEY = '7288a386509b40eb0513fd8500bd5d5d'
+    aqi, pm2_5, pm10 = get_air_quality(lat, lon, API_KEY)
+
+    # 1. Valores padrão são definidos aqui
+    resultado, acuracia, hora_predicao = 0, 0.0, hora_atual 
     try:
+        # 2. A função de predição é chamada
         resultado_pred, _, acuracia_pred, _, hora_pred_api = get_user_prediction(username)
+        
+        # 3. Os valores são atualizados AQUI DENTRO
         resultado = resultado_pred or 0
         acuracia = float(acuracia_pred) if acuracia_pred else 0.0
         hora_predicao = hora_pred_api if isinstance(hora_pred_api, str) and hora_pred_api else hora_atual
+
+    # 4. SE OCORRER QUALQUER ERRO, este 'except' é ativado e não faz NADA
     except (TypeError, ValueError, Exception):
-        pass # Erros já são logados na função original
+        pass # O erro é silenciosamente ignorado
 
     # --- DADOS PARA GRÁFICOS (Gerados a cada requisição) ---
     now = datetime.now().replace(second=0, microsecond=0)
@@ -171,13 +194,10 @@ def data():
     dashboard_data = _get_dashboard_data(username)
     return jsonify(dashboard_data)
 
-
-# O resto do arquivo (questionario, salvar_sintomas) permanece o mesmo
 @painel_bp.route("/questionario")
 def questionario():
     return render_template("questionario.html")
 
-# ... (código de salvar_sintomas sem alterações) ...
 @painel_bp.route("/salvar_sintomas", methods=["POST"])
 def salvar_sintomas():
     if request.method == 'POST':
@@ -185,28 +205,41 @@ def salvar_sintomas():
             flash('Faça login primeiro.', 'warning')
             return redirect(url_for('configuracoes.configuracoes'))
 
+        # Coleta dos dados do formulário
         data = request.form.get('data') or datetime.now().strftime('%Y-%m-%d')
         hora = request.form.get('hora') or datetime.now().strftime('%H:%M')
 
-        def sintoma(nome):
-            vals = [int(v) for v in request.form.getlist(nome)]
-            return max(vals) if vals else 0
+        def get_int(name):
+            val = request.form.get(name)
+            try: return int(val)
+            except: return 0
 
-        # coletar todos os sintomas
+        def get_float(name):
+            val = request.form.get(name)
+            try: return float(val)
+            except: return 0.0
+
+        def get_str(name):
+            return request.form.get(name, '').strip()
+
+        # Features essenciais do modelo
         sintomas_data = [
             data, hora,
-            sintoma("Tiredness"), sintoma("Dry-Cough"), sintoma("Difficulty-in-Breathing"),
-            sintoma("Sore-Throat"), sintoma("None_Sympton"), sintoma("Pains"),
-            sintoma("Nasal-Congestion"), sintoma("Runny-Nose"), sintoma("None_Experiencing"),
-            # encoding idade e gênero
-            1 if 1 <= session.get('age',0) <= 9 else 0,
-            1 if 10 <= session.get('age',0) <= 19 else 0,
-            1 if 20 <= session.get('age',0) <= 24 else 0,
-            1 if 25 <= session.get('age',0) <= 59 else 0,
-            1 if session.get('age',0) >= 60 else 0,
-            1 if session.get('gender','') == "Feminino" else 0,
-            1 if session.get('gender','') == "Masculino" else 0,
-            session.get('username','')
+            session.get('age', 0),
+            session.get('gender', ''),
+            get_float('BMI'),
+            get_int('Smoking_Status'),
+            get_int('Family_History'),
+            get_int('Allergies'),
+            get_int('Air_Pollution_Level'),
+            get_int('Physical_Activity_Level'),
+            get_int('Occupation_Type'),
+            get_int('Comorbidities'),
+            get_int('Medication_Adherence'),
+            get_int('Peak_Expiratory_Flow'),
+            get_int('FeNO_Level'),
+            get_int('Number_of_ER_Visits'),
+            session.get('username', '')
         ]
 
         file_exists = os.path.isfile("dados/sintomas.csv")
@@ -214,11 +247,11 @@ def salvar_sintomas():
             writer = csv.writer(f)
             if not file_exists:
                 writer.writerow([
-                    "Data","Hora","Tiredness","Dry-Cough","Difficulty-in-Breathing",
-                    "Sore-Throat","None_Sympton","Pains","Nasal-Congestion",
-                    "Runny-Nose","None_Experiencing","Age_0-9","Age_10-19",
-                    "Age_20-24","Age_25-59","Age_60+","Gender_Female","Gender_Male","Username"
-                ])
+                        "Data","Hora","Age","Gender", "BMI","Smoking_Status",
+                        "Family_History","Allergies","Air_Pollution_Level","Physical_Activity_Level",
+                        "Occupation_Type","Comorbidities","Medication_Adherence","Peak_Expiratory_Flow",
+                        "FeNO_Level","Number_of_ER_Visits","Username"
+                    ])
             writer.writerow(sintomas_data)
 
         return redirect("/")

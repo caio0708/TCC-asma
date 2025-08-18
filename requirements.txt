@@ -12,8 +12,13 @@ tensorflow
 docling
 jsonify
 pyaudio
+librosa
+faiss-cpu
+"Flask[async]"
 
-# xgboost deve estar na versão 0.90
+# xgboost deve estar na versão 0.90  pip install xgboost==0.90
+
+# Deixar pasta do projeto TCC na msm do Ollama para IA funcionar
 
 # pip install -r requirements.txt
 

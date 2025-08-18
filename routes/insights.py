@@ -67,7 +67,7 @@ TOPIC_ALL = "sensorestcc/+"
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print("Insights.py | Conectado ao broker MQTT")
+        #print("Insights.py | Conectado ao broker MQTT")
         client.subscribe(TOPIC_ALL)
     else:
         print(f"Insights.py | Falha na conexão, código: {rc}")
@@ -86,7 +86,7 @@ def on_message(client, userdata, msg):
                 valor = payload
         with live_data_lock:
             live_sensor_data[sensor_id] = float(valor) if isinstance(valor, (int, float, str)) and str(valor).replace('.', '', 1).isdigit() else valor
-            print(f"Insights.py | Atualizado {sensor_id}: {live_sensor_data[sensor_id]}")
+          #  print(f"Insights.py | Atualizado {sensor_id}: {live_sensor_data[sensor_id]}")
     except Exception as e:
         print(f"Insights.py | Erro ao processar mensagem MQTT: {e}")
 
@@ -214,7 +214,7 @@ def analyze_piezo(piezo_signal, fs):
 def analyze_weekly_cough(df):
     try:
         if 'Data' not in df.columns or 'contagem-tosse' not in df.columns:
-            print("Insights.py | analyze_weekly_cough: Colunas 'Data' ou 'contagem-tosse' ausentes")
+           # print("Insights.py | analyze_weekly_cough: Colunas 'Data' ou 'contagem-tosse' ausentes")
             return None
         df_copy = df.copy()
         df_copy['Data'] = pd.to_datetime(df_copy['Data'], errors='coerce')
@@ -223,7 +223,7 @@ def analyze_weekly_cough(df):
         seven_days_ago = today - pd.Timedelta(days=6)
         df_last_7_days = df_copy[df_copy['Data'] >= seven_days_ago]
         if df_last_7_days.empty:
-            print("Insights.py | analyze_weekly_cough: Nenhum dado nos últimos 7 dias")
+          #  print("Insights.py | analyze_weekly_cough: Nenhum dado nos últimos 7 dias")
             dias_semana_pt = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado', 'Domingo']
             return {
                 "labels": [d[:3] for d in dias_semana_pt],
@@ -243,7 +243,7 @@ def analyze_weekly_cough(df):
         cough_by_weekday = {day.weekday(): count for day, count in daily_max_coughs.items()}
         final_counts = [cough_by_weekday.get(i, 0) for i in range(7)]
         labels = [day_map[i][:3] for i in range(7)]
-        print(f"Insights.py | analyze_weekly_cough: Dados calculados - labels: {labels}, counts: {final_counts}")
+        #print(f"Insights.py | analyze_weekly_cough: Dados calculados - labels: {labels}, counts: {final_counts}")
         return {
             "labels": labels,
             "data": final_counts
@@ -335,7 +335,7 @@ def run_full_analysis(df_raw):
 
 def create_signal_chart_data(time_axis, signal_data, is_timestamp=True):
     if time_axis is None or signal_data is None or len(time_axis) == 0 or len(signal_data) == 0 or len(time_axis) != len(signal_data):
-        print(f"Insights.py | create_signal_chart_data: Dados inválidos (time_axis: {len(time_axis)}, signal_data: {len(signal_data)})")
+        # print(f"Insights.py | create_signal_chart_data: Dados inválidos (time_axis: {len(time_axis)}, signal_data: {len(signal_data)})")
         return []
     try:
         if is_timestamp:
@@ -348,7 +348,7 @@ def create_signal_chart_data(time_axis, signal_data, is_timestamp=True):
 
 def create_peak_chart_data(time_axis, peak_indices, signal_data, is_timestamp=True):
     if time_axis is None or signal_data is None or len(peak_indices) == 0 or len(time_axis) == 0 or len(signal_data) == 0:
-        print(f"Insights.py | create_peak_chart_data: Dados insuficientes (peaks: {len(peak_indices)})")
+        # print(f"Insights.py | create_peak_chart_data: Dados insuficientes (peaks: {len(peak_indices)})")
         return []
     try:
         valid_peaks = [p for p in peak_indices if p < len(signal_data) and p < len(time_axis)]
@@ -465,7 +465,7 @@ def api_data():
         'env_data': get_env_data(),
         'usage_events': session.get('usage_events', [])
     }
-    print(f"Insights.py | api_data: Retornando dados: {json.dumps(data, indent=2)}")
+   # print(f"Insights.py | api_data: Retornando dados: {json.dumps(data, indent=2)}")
     return jsonify(data)
 
 @insights_bp.route('/api/events', methods=['GET', 'POST', 'DELETE'])

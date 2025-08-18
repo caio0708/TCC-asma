@@ -279,33 +279,44 @@ body {
 
 .chat-input {
   display: flex;
+  align-items: center; /* Alinha verticalmente o input e o botão */
   gap: 10px;
 }
 
 .chat-input input {
   flex: 1;
-  padding: 10px;
-  border: 1px solid var(--light-blue);
-  border-radius: var(--border-radius-round);
-  font-size: 14px;
+  padding: 12px 15px; /* Um pouco mais de preenchimento vertical */
+  border: 1px solid #ccc; /* Usando uma cor padrão para o exemplo */
+  border-radius: 22px; /* Bordas mais arredondadas para um look moderno */
+  font-size: 1rem;
   font-weight: 400;
+  outline: none; /* Remove a borda ao focar */
+}
+
+.chat-input input:focus {
+  border-color: #007bff; /* Destaca a borda quando o usuário está digitando */
 }
 
 .chat-input button {
-  background-color: var(--primary-color);
-  color: var(--white);
+  background-color: #007bff; /* Cor primária */
+  color: white; /* O 'currentColor' no SVG usará esta cor */
   border: none;
-  padding: 10px;
-  border-radius: 50%;
+  border-radius: 50%; /* Garante o formato de círculo */
   cursor: pointer;
+  
+  /* Ajuste para garantir o círculo perfeito */
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0; /* Impede que o botão seja espremido */
+  
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: var(--transition);
+  transition: background-color 0.2s ease;
 }
 
 .chat-input button:hover {
-  background-color: var(--secondary-color);
+  background-color: #0056b3; /* Cor secundária, mais escura */
 }
 
 /* Área Lateral Direita (Sidebar) */
@@ -1043,3 +1054,71 @@ canvas {
   gap: 24px; /* Ajuste o valor conforme sua preferência */
 }
 
+.form-grid {
+  margin: 2px 0;
+  align-items: center;
+  width: 75%;
+  margin-bottom: 10px;
+}
+
+.form-group {
+  margin-top: 2px;
+  padding-top: 0;
+}
+
+label {
+  margin-bottom: 0;
+  margin-right: 10px;
+  font-weight: 200;
+  font-size: 0.9em;
+  color: #333333;
+}
+
+.symptom-grid {
+  margin-top: 0;
+}
+
+select {
+  appearance: none; /* remove estilo padrão */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-position: right 10px center;
+  background-repeat: no-repeat;
+}
+
+
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  margin-top: 9px;
+}
+
+.checkbox-group input {
+  margin-right: 9px;
+  width: 18px;
+  height: 18px;
+}
+
+.checkbox-group label {
+  margin-bottom: 0;
+  font-weight: 400;
+}
+
+button {
+  width: 100%;
+  padding: 9px;
+  background-color: #007bff;
+  color: rgb(0, 0, 0);
+  border: none;
+  border-radius: 6px;
+  font-size: 1.1em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.1s;
+  margin-top: 10px;
+}
+
+button:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}

@@ -5,24 +5,49 @@ import paho.mqtt.client as mqtt
 import json
 import threading
 import os
+import joblib
 from datetime import datetime, date 
 import sqlite3
 import time
 from routes.api import get_weather, get_air_quality, get_user_location
-import pickle 
-from routes.cough_detector import live_cough_counter, classify_cough, features
+from routes.cough_detector import live_cough_counter
 
 sensores_bp = Blueprint('sensores', __name__)
 
 # Configurações
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'dados', 'sensores.db')
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DADOS_DIR = os.path.join(BASE_DIR, 'dados')
+MODELOS_DIR = os.path.join(BASE_DIR, 'model_artifacts')
+DB_PATH = os.path.join(DADOS_DIR, 'sensores.db')
+MODEL_FILENAME = os.path.join(MODELOS_DIR, 'modelo_tosse.pkl')
+SCALER_FILENAME = os.path.join(MODELOS_DIR, 'scaler_tosse.pkl')
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 sensor_lock = threading.Lock()
 
+def get_today_cough_count_from_db():
+    """Consulta o banco de dados para obter a contagem máxima de tosse para o dia atual."""
+    conn = None
+    try:
+        today_str = date.today().strftime("%Y-%m-%d")
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        # Usar MAX() pois a contagem é cumulativa durante o dia, refletindo a lógica de insights.py
+        cursor.execute('SELECT MAX("contagem-tosse") FROM sensores WHERE Data = ?', (today_str,))
+        result = cursor.fetchone()
+        # Se não houver registros para hoje, o resultado será (None,)
+        if result and result[0] is not None:
+            return int(result[0])
+        return 0
+    except Exception as e:
+        print(f"Erro ao buscar contagem de tosse do dia no DB: {e}")
+        return 0 # Retorna 0 em caso de erro para não quebrar a aplicação
+    finally:
+        if conn:
+            conn.close()
+
 # Variável para controlar o reset diário
 LAST_COUGH_RESET_DAY = date.today()
-COUGH_COUNT = 0  # Contador global para tosse
+COUGH_COUNT = get_today_cough_count_from_db()
 
 # Colunas e Sensores Padrão 
 DB_COLUMNS = [
@@ -106,14 +131,14 @@ def atualizar_sensor(sensor_id, valor):
             if sensor['id'] == sensor_id:
                 try:
                     sensor['valor'] = float(valor) if isinstance(valor, (int, float, str)) and str(valor).replace('.', '', 1).isdigit() else valor
-                    print(f"--- Sensor '{sensor_id}' atualizado para: {sensor['valor']} ---")
+                 #   print(f"--- Sensor '{sensor_id}' atualizado para: {sensor['valor']} ---")
                     return
                 except ValueError:
                     print(f"--- Valor inválido para '{sensor_id}': {valor}, mantendo valor atual ---")
                     return
         unidade = UNIDADES.get(sensor_id, '')
         lista_sensores.append({'id': sensor_id, 'valor': float(valor) if isinstance(valor, (int, float, str)) and str(valor).replace('.', '', 1).isdigit() else valor, 'unidade': unidade})
-        print(f"--- Sensor novo '{sensor_id}' adicionado com valor: {valor} ---")
+        #print(f"--- Sensor novo '{sensor_id}' adicionado com valor: {valor} ---")
 
 def on_message(client, userdata, msg):
     try:
@@ -205,22 +230,33 @@ def incrementa_contador_tosse():
                 return
 
 def iniciar_detector_tosse():
+    # CORREÇÃO: Todo o bloco de código abaixo foi indentado com 4 espaços
     try:
         print("Carregando modelo de detecção de tosse...")
 
+        # Verifica se os arquivos realmente existem antes de tentar carregá-los
+        if not os.path.exists(MODEL_FILENAME):
+            print(f"ERRO: Arquivo do modelo não encontrado em: {MODEL_FILENAME}")
+            return False # MELHORIA: Usa 'return' em vez de 'exit()'
+
+        if not os.path.exists(SCALER_FILENAME):
+            print(f"ERRO: Arquivo do scaler não encontrado em: {SCALER_FILENAME}")
+            return False # MELHORIA: Usa 'return' em vez de 'exit()'
+
         # Monta os caminhos para os arquivos do modelo
-        model_path = os.path.join(BASE_DIR, 'model_artifacts', 'cough_classifier')
-        scaler_path = os.path.join(BASE_DIR, 'model_artifacts', 'cough_classification_scaler')
+        model = joblib.load(MODEL_FILENAME)
+        scaler = joblib.load(SCALER_FILENAME)
         
-        model = pickle.load(open(model_path, 'rb'))
-        scaler = pickle.load(open(scaler_path, 'rb'))
-        
-        print("Modelo carregado. Iniciando escuta...")
+        print("Modelo e scaler carregados. Iniciando escuta...")
         live_cough_counter(model, scaler, update_callback=incrementa_contador_tosse)
-    except FileNotFoundError:
-        print("ERRO: Arquivos de modelo ou scaler não encontrados. A detecção de tosse não será iniciada.")
+        
+        return True # Retorna sucesso se a função terminar normalmente
+
     except Exception as e:
+        # Este bloco vai capturar o erro 'invalid load key' e outros problemas
         print(f"ERRO ao iniciar o detector de tosse: {e}")
+        print("O arquivo pode estar corrompido ou inacessível. Tente retreinar o modelo.")
+        return False # MELHORIA: Usa 'return' em vez de 'exit()'
 
 # Thread para MQTT e DB
 threading.Thread(target=salvar_dados_db, daemon=True).start()

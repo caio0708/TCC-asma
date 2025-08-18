@@ -258,8 +258,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Y-axis limits for each chart
     const yAxisLimits = {
-      ppgChart: { min: -150, max: 150, title: 'Amplitude Filtrada' },
-      respirationChart: { min: -100, max: 200, title: 'Amplitude Modulada' },
+      ppgChart: { min: -150, max: 200, title: 'Amplitude Filtrada' },
+      respirationChart: { min: -100, max: 300, title: 'Amplitude Modulada' },
       soundChart: { min: 0, max: 4000, title: 'Amplitude do ADC' },
       motionChart: { min: 0, max: 60, title: 'Magnitude (Acel. e Rotação)' },
       piezoChart: { min: 0, max: 5000, title: 'Amplitude do Sinal' }

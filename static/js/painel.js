@@ -1,5 +1,3 @@
-// input_file_1.js (CORRIGIDO E COMPLETO)
-
 document.addEventListener('DOMContentLoaded', function() {
     const charts = {};
 
