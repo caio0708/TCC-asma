@@ -2,207 +2,269 @@ import pyaudio
 import numpy as np
 import librosa
 import librosa.display
-from sklearn.svm import SVC
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import cross_val_score, GridSearchCV
-from sklearn.metrics import classification_report
-import time
 import os
 import glob
 import joblib
+import time
+import random
 
-# Parâmetros de áudio
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.metrics import classification_report, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# --- Parâmetros Globais ---
+# Áudio
 RATE = 44100
-CHUNK = int(RATE)
+CHUNK = int(RATE / 2) # Captura blocos de 0.5s para maior responsividade
 THRESHOLD = 0.02
-NUM_NON_COUGH_SAMPLES = 100  # Aumentado para maior diversidade
-COUGH_DATA_DIR = r'C:\Users\caiot\Downloads\Nova pasta (5)\Cough Detection\data'
-CAPTURE_TIMEOUT = 15
-MODEL_FILENAME = "modelo_tosse.pkl"
-SCALER_FILENAME = "scaler_tosse.pkl"
+CAPTURE_TIMEOUT = 10 # Reduzido para agilizar a coleta
 
-# Função para pré-processar áudio (normalização e remoção de ruído)
-def preprocess_audio(audio, sr=RATE):
+# Dados e Modelo
+COUGH_DATA_DIR = r'C:\Users\caiot\Downloads\Nova pasta (5)\Cough Detection\data'
+NUM_NON_COUGH_SAMPLES = 100
+MODEL_FILENAME = "modelo_tosse_aprimorado.pkl"
+SCALER_FILENAME = "scaler_tosse_aprimorado.pkl"
+
+# --- Funções de Aumento de Dados (Data Augmentation) ---
+def add_noise(audio, noise_factor=0.005):
+    """ Adiciona ruído gaussiano ao sinal de áudio. """
+    noise = np.random.randn(len(audio))
+    return audio + noise_factor * noise
+
+def time_shift(audio, shift_max_ms=50):
+    """ Desloca o áudio no tempo por um valor aleatório. """
+    shift_samples = int(shift_max_ms * RATE / 1000)
+    shift = np.random.randint(-shift_samples, shift_samples)
+    return np.roll(audio, shift)
+
+def pitch_shift(audio, sr=RATE, n_steps=2):
+    """ Altera o tom (pitch) do áudio. """
+    return librosa.effects.pitch_shift(y=audio, sr=sr, n_steps=n_steps)
+
+def augment_data(audio, sr=RATE):
+    """ Aplica uma ou mais técnicas de aumento de dados aleatoriamente. """
+    augmented_audio = audio.copy()
+    if random.choice([True, False]):
+        augmented_audio = add_noise(augmented_audio)
+    if random.choice([True, False]):
+        augmented_audio = time_shift(augmented_audio)
+    if random.choice([True, False]):
+        # Aplica pitch shift com pequena variação para não descaracterizar a tosse
+        steps = random.uniform(-1.5, 1.5)
+        augmented_audio = pitch_shift(augmented_audio, sr=sr, n_steps=steps)
+    return augmented_audio
+
+# --- Funções de Processamento e Extração de Features ---
+def preprocess_audio(audio):
+    """ Normaliza e aplica pré-ênfase para realçar altas frequências. """
     try:
-        # Normaliza o áudio
+        # Normaliza o áudio para o intervalo [-1, 1]
         audio = audio / np.max(np.abs(audio))
-        # Aplica um filtro passa-alta para reduzir ruídos de baixa frequência
+        # Aplica um filtro de pré-ênfase
         audio = librosa.effects.preemphasis(audio)
         return audio
     except Exception as e:
         print(f"Erro no pré-processamento: {e}")
         return None
 
-# Função para extrair features MFCC, temporais e de waveform
 def extract_features(audio, sr=RATE):
+    """ Extrai um conjunto rico de features do áudio. """
     try:
-        # Pré-processa o áudio
-        audio = preprocess_audio(audio, sr)
+        if len(audio) < 2048: # Garante que o áudio tenha um tamanho mínimo
+             return None
+             
+        audio = preprocess_audio(audio)
         if audio is None:
             return None
 
-        # MFCC
-        mfcc_features = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=20)
-        mfcc_mean = mfcc_features.mean(axis=1)
-        mfcc_std = mfcc_features.std(axis=1)
+        # Features Espectrais (MFCCs e seus deltas)
+        mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)
+        delta_mfccs = librosa.feature.delta(mfccs)
+        delta2_mfccs = librosa.feature.delta(mfccs, order=2)
+        
+        mfcc_features = np.concatenate((
+            np.mean(mfccs, axis=1), np.std(mfccs, axis=1),
+            np.mean(delta_mfccs, axis=1), np.std(delta_mfccs, axis=1),
+            np.mean(delta2_mfccs, axis=1), np.std(delta2_mfccs, axis=1)
+        ))
 
-        # RMS (energia)
-        rms = np.mean(librosa.feature.rms(y=audio))
+        # Contraste Espectral
+        spectral_contrast = librosa.feature.spectral_contrast(y=audio, sr=sr)
+        contrast_features = np.concatenate((
+            np.mean(spectral_contrast, axis=1), np.std(spectral_contrast, axis=1)
+        ))
 
-        # ZCR (taxa de cruzamento por zero)
+        # Features Temporais
         zcr = np.mean(librosa.feature.zero_crossing_rate(y=audio))
-
-        # Short-Time Energy (STE) em janelas
-        frame_length = 2048
-        hop_length = 512
-        ste = np.mean(librosa.feature.rms(y=audio, frame_length=frame_length, hop_length=hop_length))
-
-        # STFT para análise espectral
-        stft = np.abs(librosa.stft(audio, n_fft=2048, hop_length=512))
-        spectral_centroid = np.mean(librosa.feature.spectral_centroid(y=audio, sr=sr))
-        spectral_bandwidth = np.mean(librosa.feature.spectral_bandwidth(y=audio, sr=sr))
-
-        # Combina todas as features
-        features = np.concatenate([mfcc_mean, mfcc_std, [rms, zcr, ste, spectral_centroid, spectral_bandwidth]])
+        rms = np.mean(librosa.feature.rms(y=audio))
+        
+        # Combina todas as features em um único vetor
+        features = np.concatenate((mfcc_features, contrast_features, [zcr, rms]))
         return features
+
     except Exception as e:
         print(f"Erro ao extrair features: {e}")
         return None
 
-# Função para carregar features de arquivos .wav de tosses
-def load_cough_features(directory):
+# --- Funções de Coleta de Dados ---
+def load_cough_features(directory, augment=True):
+    """ Carrega áudios de tosse, extrai features e aplica data augmentation. """
     cough_features = []
     wav_files = glob.glob(os.path.join(directory, '*.wav'))
-    print(f"Encontrados {len(wav_files)} arquivos .wav de tosses para treinamento.")
+    print(f"Encontrados {len(wav_files)} arquivos .wav de tosses.")
+    
     for file in wav_files:
         try:
             audio, sr = librosa.load(file, sr=RATE)
             if len(audio) > 0:
+                # Feature do áudio original
                 features = extract_features(audio, sr)
                 if features is not None:
                     cough_features.append(features)
+                
+                # Aplica augmentation para criar 2 variações sintéticas
+                if augment:
+                    for _ in range(2):
+                        augmented_audio = augment_data(audio, sr)
+                        aug_features = extract_features(augmented_audio, sr)
+                        if aug_features is not None:
+                            cough_features.append(aug_features)
+
         except Exception as e:
-            print(f"Erro ao carregar {file}: {e}")
+            print(f"Erro ao carregar ou processar {file}: {e}")
+            
+    print(f"Total de {len(cough_features)} amostras de tosse (com augmentation).")
     return cough_features
 
-# Função para capturar uma amostra de áudio com timeout
 def capture_sample(stream, prompt):
+    """ Captura uma amostra de áudio do microfone. """
     print(prompt)
-    time.sleep(1)
+    time.sleep(0.5)
     start_time = time.time()
+    
     while time.time() - start_time < CAPTURE_TIMEOUT:
         try:
             data = stream.read(CHUNK, exception_on_overflow=False)
             audio = np.frombuffer(data, dtype=np.float32)
             energy = np.sqrt(np.mean(audio**2))
-            print(f"Energia detectada: {energy:.6f} (limiar: {THRESHOLD})")
+            
             if energy > THRESHOLD:
+                print(f"Som detectado com energia: {energy:.4f}. Gravando...")
+                # Grava por 1 segundo inteiro para capturar o evento completo
+                full_data = data + stream.read(CHUNK, exception_on_overflow=False)
+                full_audio = np.frombuffer(full_data, dtype=np.float32)
                 print("Amostra capturada!")
-                return audio
+                return full_audio
         except Exception as e:
             print(f"Erro na captura de áudio: {e}")
         time.sleep(0.1)
-    print("Timeout: Nenhuma amostra com energia suficiente detectada.")
+        
+    print("Timeout: Nenhum som acima do limiar foi detectado.")
     return None
 
-# Inicializa o PyAudio
-p = pyaudio.PyAudio()
-stream = p.open(format=pyaudio.paFloat32,
-                channels=1,
-                rate=RATE,
-                input=True,
-                frames_per_buffer=CHUNK)
+def main():
+    """ Função principal para executar o treinamento do modelo. """
+    p = pyaudio.PyAudio()
+    stream = p.open(format=pyaudio.paFloat32, channels=1, rate=RATE, input=True, frames_per_buffer=CHUNK)
 
-print("--- INICIANDO TREINAMENTO DO MODELO ---")
+    print("--- INICIANDO TREINAMENTO OTIMIZADO DO MODELO ---")
 
-# Carrega features de tosses dos arquivos .wav
-cough_features = load_cough_features(COUGH_DATA_DIR)
-if len(cough_features) == 0:
-    print("Nenhum arquivo de tosse válido encontrado. Abortando.")
+    # 1. Carregar e aumentar dados de tosses
+    cough_features = load_cough_features(COUGH_DATA_DIR, augment=True)
+    if len(cough_features) < 10:
+        print("Poucas amostras de tosse encontradas. Abortando.")
+        return
+
+    # 2. Coletar amostras de não-tosses (ruído ambiente, fala, etc.)
+    non_cough_features = []
+    prompts = [
+        "Fique em silêncio (ruído de fundo).", "Fale 'olá, como vai você?'.", "Assovie uma melodia.",
+        "Bata palmas uma vez.", "Digite algo no teclado.", "Respire fundo.",
+        "Mova sua cadeira.", "Diga uma frase longa e contínua.", "Limpe a garganta (som de 'aham').",
+        "Estale os dedos perto do microfone.", "Ligue e desligue um ventilador se possível.",
+        "Toque um trecho curto de música no celular."
+    ]
+    print(f"\n--- Fase de Calibração: Capturando {NUM_NON_COUGH_SAMPLES} amostras de 'não-tosses' ---")
+    while len(non_cough_features) < NUM_NON_COUGH_SAMPLES:
+        idx = len(non_cough_features)
+        prompt = f"Amostra {idx+1}/{NUM_NON_COUGH_SAMPLES}: {prompts[idx % len(prompts)]}"
+        audio = capture_sample(stream, prompt)
+        if audio is not None:
+            features = extract_features(audio)
+            if features is not None:
+                non_cough_features.append(features)
+        else:
+            print(f"Amostra {idx+1} ignorada.")
+
+    if len(non_cough_features) < 10:
+        print("Poucas amostras de não-tosse capturadas. Abortando.")
+        return
+
+    # 3. Preparar o dataset
+    print("\n--- Preparando dados para o treinamento ---")
+    X = np.array(cough_features + non_cough_features)
+    y = np.array([1] * len(cough_features) + [0] * len(non_cough_features))
+    
+    # 4. Dividir em Treino e Teste (75% treino, 25% teste)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42, stratify=y)
+    print(f"Total de amostras: {len(X)}")
+    print(f"Amostras de treino: {len(X_train)}, Amostras de teste: {len(X_test)}")
+
+    # 5. Normalizar os dados (StandardScaler)
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test) # IMPORTANTE: usar o scaler treinado nos dados de treino
+
+    # 6. Treinar o modelo com GridSearchCV e RandomForest
+    print("\n--- Treinando o modelo com validação cruzada ---")
+    # Modelo: RandomForest é uma excelente escolha pela sua robustez
+    model = RandomForestClassifier(random_state=42, class_weight='balanced')
+    param_grid = {
+        'n_estimators': [50, 100, 200],
+        'max_depth': [10, 20, None],
+        'min_samples_split': [2, 5],
+        'max_features': ['sqrt', 'log2']
+    }
+
+    # Busca pelos melhores hiperparâmetros
+    grid_search = GridSearchCV(estimator=model, param_grid=param_grid, cv=5, n_jobs=-1, verbose=1)
+    grid_search.fit(X_train_scaled, y_train)
+
+    best_model = grid_search.best_estimator_
+    print(f"\nMelhores hiperparâmetros encontrados: {grid_search.best_params_}")
+
+    # 7. Avaliar o modelo no conjunto de TESTE
+    print("\n--- Avaliando o modelo no conjunto de teste (dados não vistos) ---")
+    y_pred = best_model.predict(X_test_scaled)
+
+    print("\nRelatório de Classificação:")
+    print(classification_report(y_test, y_pred, target_names=["Não-Tosse", "Tosse"]))
+    
+    # Matriz de Confusão
+    cm = confusion_matrix(y_test, y_pred)
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=["Não-Tosse", "Tosse"], yticklabels=["Não-Tosse", "Tosse"])
+    plt.title('Matriz de Confusão no Conjunto de Teste')
+    plt.ylabel('Verdadeiro')
+    plt.xlabel('Predito')
+    plt.show()
+
+    # 8. Salvar o modelo e o scaler
+    print(f"\nSalvando o modelo treinado em '{MODEL_FILENAME}'...")
+    joblib.dump(best_model, MODEL_FILENAME)
+    print(f"Salvando o normalizador (scaler) em '{SCALER_FILENAME}'...")
+    joblib.dump(scaler, SCALER_FILENAME)
+
+    print("\nTreinamento concluído com sucesso!")
+
+    # Finalizar PyAudio
     stream.stop_stream()
     stream.close()
     p.terminate()
-    exit()
 
-# Fase de calibração: Coletar amostras de não-tosses
-non_cough_features = []
-prompts = [
-    "Fique em silêncio para capturar ruído de fundo.",
-    "Fale algo (ex.: 'teste, teste') para capturar fala normal.",
-    "Assovie por alguns segundos.",
-    "Faça um ruído leve, como bater palmas ou estalar os dedos.",
-    "Mantenha o ambiente natural (ex.: ruídos de fundo, como ventilador ou teclado).",
-    "Fale uma frase longa para capturar fala contínua.",
-    "Assovie novamente com um tom diferente.",
-    "Faça um som de respiração profunda.",
-    "Bata levemente na mesa ou faça outro ruído curto.",
-    "Fique em silêncio novamente para capturar variação.",
-    "Toque um som ambiente (ex.: música ao fundo).",
-    "Faça um som de movimento (ex.: arrastar uma cadeira).",
-    "Fale em tom alto, como se estivesse gritando.",
-    "Faça um som de impacto (ex.: bater em uma porta)."
-]
-print("\nFase de calibração: Capturaremos 100 amostras de não-tosses. Siga as instruções.")
-for i in range(NUM_NON_COUGH_SAMPLES):
-    audio = capture_sample(stream, f"Capturando amostra não-tosse {i+1}/{NUM_NON_COUGH_SAMPLES}: {prompts[i % len(prompts)]}")
-    if audio is not None:
-        features = extract_features(audio)
-        if features is not None:
-            non_cough_features.append(features)
-    else:
-        print(f"Amostra {i+1} ignorada devido a timeout ou erro.")
-
-if len(non_cough_features) < 10:
-    print("Menos de 10 amostras de não-tosse válidas capturadas. Abortando.")
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
-    exit()
-
-# Balanceamento de classes
-min_samples = min(len(cough_features), len(non_cough_features))
-cough_features = cough_features[:min_samples]
-non_cough_features = non_cough_features[:min_samples]
-print(f"Balanceamento aplicado: {min_samples} amostras de tosses e {min_samples} de não-tosses.")
-
-# Preparar dados para treinamento
-print("\nPreparando dados e treinando o modelo...")
-X = np.vstack((cough_features, non_cough_features))
-y = np.array([1] * len(cough_features) + [0] * len(non_cough_features))
-
-# Normalização
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-
-# Ajuste de hiperparâmetros com GridSearchCV
-param_grid = {
-    'C': [0.1, 1, 10, 100],
-    'gamma': ['scale', 'auto', 0.001, 0.01, 0.1]
-}
-model = GridSearchCV(SVC(kernel='rbf', probability=True), param_grid, cv=5, n_jobs=-1)
-model.fit(X_scaled, y)
-
-# Exibe os melhores hiperparâmetros
-print(f"Melhores hiperparâmetros: {model.best_params_}")
-
-# Validação cruzada e métricas detalhadas
-scores = cross_val_score(model.best_estimator_, X_scaled, y, cv=5)
-print(f"Acurácia média (validação cruzada): {np.mean(scores):.2f} (±{np.std(scores):.2f})")
-
-# Relatório detalhado
-y_pred = model.predict(X_scaled)
-print("\nRelatório de classificação no conjunto de treinamento:")
-print(classification_report(y, y_pred, target_names=["Não-Tosse", "Tosse"]))
-
-# Salvamento do modelo e scaler
-print(f"Salvando o modelo em '{MODEL_FILENAME}'...")
-joblib.dump(model.best_estimator_, MODEL_FILENAME)
-print(f"Salvando o scaler em '{SCALER_FILENAME}'...")
-joblib.dump(scaler, SCALER_FILENAME)
-
-print("\nModelo e scaler salvos com sucesso! Você já pode rodar o script 'detectar_tosse.py'.")
-
-# Fecha o stream
-stream.stop_stream()
-stream.close()
-p.terminate()
+if __name__ == '__main__':
+    main()

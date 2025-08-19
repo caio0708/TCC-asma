@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 import logging
 import asyncio
 import traceback
@@ -21,8 +22,8 @@ from routes.sensores import lista_sensores
 
 # --- Configuração Inicial ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-API_KEY_WEATHER = '7288a386509b40eb0513fd8500bd5d5d'
 FAISS_INDEX_PATH = "faiss_index"
+load_dotenv()
 
 chat_bp = Blueprint('chat', __name__)
 cache = TTLCache(maxsize=200, ttl=900)
@@ -140,7 +141,8 @@ async def dados_ambientais():
         lat, lon, city = await asyncio.to_thread(get_user_location)
         cache_key = f"dados-{lat}-{lon}"
         if cache_key in cache: return jsonify(cache[cache_key])
-        air_task = asyncio.to_thread(get_air_quality, lat, lon, API_KEY_WEATHER)
+        api_key = os.getenv('API_WEATHER_KEY')
+        air_task = asyncio.to_thread(get_air_quality, lat, lon, api_key)
         weather_task = asyncio.to_thread(get_weather, lat, lon)
         aqi, pm2_5, pm10 = await air_task
         t, humidity = await weather_task

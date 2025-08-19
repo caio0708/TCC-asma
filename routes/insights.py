@@ -5,6 +5,7 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 import os
+from dotenv import load_dotenv
 import subprocess
 import threading
 import json
@@ -25,7 +26,8 @@ insights_bp = Blueprint('insights', __name__)
 # Configurações
 lat = -23.5505
 lon = -46.6333
-API_KEY = '7288a386509b40eb0513fd8500bd5d5d'
+# Carregar as variáveis do arquivo .env
+load_dotenv()
 UPLOAD_FOLDER = 'Uploads/audio'
 ALLOWED_EXTENSIONS = {'webm'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -409,7 +411,8 @@ def get_env_data():
                         print(f"Insights.py | get_env_data: Valor inválido para {sensor_id}: {value}")
                         res[sensor_id] = value
         temp, humidity = get_weather(lat, lon)
-        aqi, pm2_5, pm10 = get_air_quality(lat, lon, API_KEY)
+        api_key = os.getenv('API_WEATHER_KEY')
+        aqi, pm2_5, pm10 = get_air_quality(lat, lon, api_key)
         res['temperatura-ambiente'] = round(float(temp), 2) if temp is not None else res.get('temperatura-ambiente', 0)
         res['umidade'] = round(float(humidity), 2) if humidity is not None else res.get('umidade', 0)
         res['qualidade-ar-aqi'] = int(aqi) if aqi is not None else res.get('qualidade-ar-aqi', 0)

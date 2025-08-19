@@ -16,13 +16,16 @@ librosa
 faiss-cpu
 "Flask[async]"
 
+tensorflow_hub 
+dotenv
+
 # xgboost deve estar na versão 0.90  pip install xgboost==0.90
 
 # Deixar pasta do projeto TCC na msm do Ollama para IA funcionar
 
 # pip install -r requirements.txt
 
-# Salvar no GitHub: git add .    git commit -m "atualizar caminhos path"      git push 
+# Salvar no GitHub: git add .    git commit -m "atualizar chatbot+sensores e previsao crise"      git push 
 
 # venv\Scripts\activate
 

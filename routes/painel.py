@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, session, request, redirect, flash, url_for, jsonify # Adicionar jsonify
 from datetime import datetime, timedelta
 import os
+from dotenv import load_dotenv
 import csv
 from routes.crises import get_user_prediction
 
@@ -10,6 +11,7 @@ painel_bp = Blueprint('painel', __name__)
 
 # --- CONSTANTES ---
 SENSOR_DATA_CSV = 'dados/sensores.csv'
+load_dotenv()
 
 # --- FUNÇÕES DE DADOS ---
 
@@ -122,8 +124,8 @@ def _get_dashboard_data(username='Visitante'):
     cont_tosse = to_float(latest_sensor_data.get("contagem-tosse"))
 
     lat, lon, city = get_user_location()
-    API_KEY = '7288a386509b40eb0513fd8500bd5d5d'
-    aqi, pm2_5, pm10 = get_air_quality(lat, lon, API_KEY)
+    api_key = os.getenv('API_WEATHER_KEY')
+    aqi, pm2_5, pm10 = get_air_quality(lat, lon, api_key)
 
     # 1. Valores padrão são definidos aqui
     resultado, acuracia, hora_predicao = 0, 0.0, hora_atual 

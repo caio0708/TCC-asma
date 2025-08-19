@@ -5,22 +5,26 @@ import paho.mqtt.client as mqtt
 import json
 import threading
 import os
+from dotenv import load_dotenv
 import joblib
 from datetime import datetime, date 
 import sqlite3
 import time
 from routes.api import get_weather, get_air_quality, get_user_location
-from routes.cough_detector import live_cough_counter
+from routes.cough_detector import iniciar_detector_tosse
 
 sensores_bp = Blueprint('sensores', __name__)
+
+# Carregar as variáveis do arquivo .env
+load_dotenv()
 
 # Configurações
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DADOS_DIR = os.path.join(BASE_DIR, 'dados')
 MODELOS_DIR = os.path.join(BASE_DIR, 'model_artifacts')
 DB_PATH = os.path.join(DADOS_DIR, 'sensores.db')
-MODEL_FILENAME = os.path.join(MODELOS_DIR, 'modelo_tosse.pkl')
-SCALER_FILENAME = os.path.join(MODELOS_DIR, 'scaler_tosse.pkl')
+MODEL_FILENAME = os.path.join(MODELOS_DIR, 'modelo_tosse_aprimorado.pkl')
+SCALER_FILENAME = os.path.join(MODELOS_DIR, 'scaler_tosse_aprimorado.pkl')
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 sensor_lock = threading.Lock()
 
@@ -83,9 +87,9 @@ UNIDADES = {s['id']: s['unidade'] for s in SENSORES_PADRAO}
 
 def inicializar_sensores():
     lat, lon, city = get_user_location()
-    API_KEY = '7288a386509b40eb0513fd8500bd5d5d'
+    api_key = os.getenv('API_WEATHER_KEY')
     temp, humidity = get_weather(lat, lon)
-    aqi, pm2_5, pm10 = get_air_quality(lat, lon, API_KEY)
+    aqi, pm2_5, pm10 = get_air_quality(lat, lon, api_key)
     sensores = [dict(s) for s in SENSORES_PADRAO]
     with sensor_lock:
         for s in sensores:
@@ -229,39 +233,16 @@ def incrementa_contador_tosse():
                 print(f"--- CONTADOR DE TOSSE INCREMENTADO: {COUGH_COUNT} ---")
                 return
 
-def iniciar_detector_tosse():
-    # CORREÇÃO: Todo o bloco de código abaixo foi indentado com 4 espaços
-    try:
-        print("Carregando modelo de detecção de tosse...")
-
-        # Verifica se os arquivos realmente existem antes de tentar carregá-los
-        if not os.path.exists(MODEL_FILENAME):
-            print(f"ERRO: Arquivo do modelo não encontrado em: {MODEL_FILENAME}")
-            return False # MELHORIA: Usa 'return' em vez de 'exit()'
-
-        if not os.path.exists(SCALER_FILENAME):
-            print(f"ERRO: Arquivo do scaler não encontrado em: {SCALER_FILENAME}")
-            return False # MELHORIA: Usa 'return' em vez de 'exit()'
-
-        # Monta os caminhos para os arquivos do modelo
-        model = joblib.load(MODEL_FILENAME)
-        scaler = joblib.load(SCALER_FILENAME)
-        
-        print("Modelo e scaler carregados. Iniciando escuta...")
-        live_cough_counter(model, scaler, update_callback=incrementa_contador_tosse)
-        
-        return True # Retorna sucesso se a função terminar normalmente
-
-    except Exception as e:
-        # Este bloco vai capturar o erro 'invalid load key' e outros problemas
-        print(f"ERRO ao iniciar o detector de tosse: {e}")
-        print("O arquivo pode estar corrompido ou inacessível. Tente retreinar o modelo.")
-        return False # MELHORIA: Usa 'return' em vez de 'exit()'
+def detector_tosse_thread():
+    print("[APP] Iniciando a thread do detector de tosse...")
+    # Agora passamos a função `incrementa_contador_tosse` como um argumento.
+    # Quando o detector ouvir uma tosse, ele chamará esta função.
+    iniciar_detector_tosse(incrementa_contador_tosse)
 
 # Thread para MQTT e DB
 threading.Thread(target=salvar_dados_db, daemon=True).start()
 threading.Thread(target=start_mqtt, daemon=True).start()
-threading.Thread(target=iniciar_detector_tosse, daemon=True).start()
+threading.Thread(target=detector_tosse_thread, daemon=True).start()
 
 def atualizar_sensores_por_ia(dados_ia):
     for sensor_id, valor in dados_ia.items():
