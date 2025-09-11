@@ -9,4 +9,4 @@ __pycache__/
 uploads/
 
 # Arquivos de ambiente (se você usar)
-.env
+#.env

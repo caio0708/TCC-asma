@@ -10,7 +10,7 @@ from sklearn.metrics import accuracy_score
 # --- 1. Carregamento e Pré-processamento dos Dados ---
 
 # Corrigido o nome do arquivo para o dataset fornecido.
-file_path = 'dados/synthetic_asthma_dataset.csv'
+file_path = 'dados/synthetic_asthma_dataset.csv' #corrigir nome do arquivo sintomas.csv
 try:
     df = pd.read_csv(file_path)
 except FileNotFoundError:
