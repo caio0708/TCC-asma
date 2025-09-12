@@ -31,7 +31,7 @@ load_dotenv()
 UPLOAD_FOLDER = 'Uploads/audio'
 ALLOWED_EXTENSIONS = {'webm'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_PATH = os.path.join(BASE_DIR, "dados", "sensores.db")
 
 # Configurações de ML
