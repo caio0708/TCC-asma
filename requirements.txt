@@ -25,7 +25,7 @@ sounddevice
 
 # pip install -r requirements.txt
 
-# Salvar no GitHub: git add .    git commit -m "env"      git push 
+# Salvar no GitHub: git add .    git commit -m "caminho insights ok"      git push 
 
 # venv\Scripts\activate
 # C:\Users\caiot\AppData\Local\Temp\tfhub_modules\9616fd04ec2360621642ef9455b84f4b668e219e

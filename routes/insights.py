@@ -31,10 +31,11 @@ load_dotenv()
 UPLOAD_FOLDER = 'Uploads/audio'
 ALLOWED_EXTENSIONS = {'webm'}
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-DB_PATH = r'E:\Dev\TCC-asma\ia\dados\sensores.db'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "dados", "sensores.db")
 
 # Configurações de ML
-MODEL_ARTIFACTS_DIR = r'E:\Dev\TCC-asma\ia\model_artifacts'
+MODEL_ARTIFACTS_DIR = os.path.join(BASE_DIR, "model_artifacts")
 MODEL_PATH = os.path.join(MODEL_ARTIFACTS_DIR, 'audio_asthma_detection_model.keras')
 ENCODER_PATH = os.path.join(MODEL_ARTIFACTS_DIR, 'label_encoder.joblib')
 
