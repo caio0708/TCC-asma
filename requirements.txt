@@ -18,10 +18,9 @@ Flask[async]
 tensorflow_hub 
 dotenv
 sounddevice
-google-api-python-client>=2.100.0
 
-langchain-google-community
-ddgs
+langchain_google_genai
+google.generativeai
 
 
 
@@ -31,7 +30,7 @@ ddgs
 
 # pip install -r requirements.txt
 
-# Salvar no GitHub: git add .    git commit -m "caminho insights ok"      git push 
+# Salvar no GitHub: git add .    git commit -m "chat ok"      git push 
 
 # venv\Scripts\activate
 # C:\Users\caiot\AppData\Local\Temp\tfhub_modules\9616fd04ec2360621642ef9455b84f4b668e219e
