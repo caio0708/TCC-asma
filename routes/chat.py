@@ -1,3 +1,5 @@
+# chat.py — VERSÃO GEMINI
+
 import os
 from dotenv import load_dotenv
 import logging
@@ -8,14 +10,16 @@ from operator import itemgetter
 
 from flask import Blueprint, render_template, request, jsonify
 from cachetools import TTLCache
-import ollama
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnableParallel
 from langchain_community.vectorstores import FAISS
-from langchain_ollama.embeddings import OllamaEmbeddings
-from langchain_ollama.llms import OllamaLLM
+from google.generativeai.types import HarmCategory, HarmBlockThreshold
+
+# >>> TROCA: Azure → Gemini
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+import google.generativeai as genai
 
 from routes.api import get_user_location, get_air_quality, get_weather
 from routes.sensores import lista_sensores
@@ -28,11 +32,10 @@ load_dotenv()
 chat_bp = Blueprint('chat', __name__)
 cache = TTLCache(maxsize=200, ttl=900)
 
-# --- Listas de palavras-chave ---
 PALAVRAS_CHAVE_ASMA = ["asma", "respiração", "inalador", "bronquite", "alergia", "pulmão", "crise", "sintomas", "tratamento", "como estou", "meus dados", "analise meus sensores"]
 SAUDACOES = ["oi", "olá", "bom dia", "boa tarde", "boa noite", "como vai", "tudo bem","ola"]
 
-# --- Funções de análise ambiental (sem alterações) ---
+# --- Análises ambientais  ---
 @lru_cache(maxsize=128)
 def analisar_qualidade_ar(aqi):
     niveis = [
@@ -40,7 +43,7 @@ def analisar_qualidade_ar(aqi):
         ("Razoável", "🟡", "A qualidade do ar é aceitável. Pacientes sensíveis devem evitar esforços prolongados."),
         ("Moderado", "🟠", "A qualidade do ar pode afetar pacientes com asma. Evite atividades intensas ao ar livre."),
         ("Ruim", "🔴", "A qualidade do ar é ruim. Recomenda-se permanecer em ambientes internos."),
-        ("Muito Ruim", "🟣", "A qualidade do ar é muito ruim. Risco elevado à saúde; permaneça em ambientes internos com purificação de ar.")
+        ("Muito Ruim", "🟣", "Risco elevado à saúde; permaneça em ambientes internos com purificação de ar."),
     ]
     idx = min(max(aqi - 1, 0), 4)
     nivel, emoji, recomendacao = niveis[idx]
@@ -51,9 +54,9 @@ def analisar_umidade(humidity):
     if 30 <= humidity <= 50:
         nivel, emoji, recomendacao = "Ideal", "🟢", "Níveis de umidade ideais para pacientes asmáticos."
     elif humidity > 50:
-        nivel, emoji, recomendacao = "Alta", "🟡" if humidity <= 60 else "🔴", "Umidade alta pode agravar sintomas de asma. Considere usar um desumidificador."
+        nivel, emoji, recomendacao = "Alta", "🟡" if humidity <= 60 else "🔴", "Umidade alta pode agravar sintomas; considere desumidificador."
     else:
-        nivel, emoji, recomendacao = "Baixa", "🟡" if humidity >= 20 else "🔴", "Umidade baixa pode irritar as vias aéreas. Considere usar um umidificador."
+        nivel, emoji, recomendacao = "Baixa", "🟡" if humidity >= 20 else "🔴", "Umidade baixa pode irritar vias aéreas; considere umidificador."
     return {"condicao": "Umidade", "valor": f"{humidity}%", "nivel": nivel, "emoji": emoji, "recomendacao": recomendacao}
 
 @lru_cache(maxsize=128)
@@ -61,44 +64,87 @@ def analisar_temperatura(temp):
     if 18 <= temp <= 22:
         nivel, emoji, recomendacao = "Agradável", "🟢", "Temperatura confortável para pacientes asmáticos."
     elif temp < 18:
-        nivel, emoji, recomendacao = "Fria", "🟡" if temp >= 12 else "🔴", "Temperaturas frias podem desencadear broncoespasmo. Proteja-se ao sair."
+        nivel, emoji, recomendacao = "Fria", "🟡" if temp >= 12 else "🔴", "Frio pode desencadear broncoespasmo; proteja-se ao sair."
     else:
-        nivel, emoji, recomendacao = "Quente", "🟡" if temp <= 28 else "🔴", "Calor intenso pode ser um gatilho. Mantenha-se hidratado e evite exposição ao sol."
+        nivel, emoji, recomendacao = "Quente", "🟡" if temp <= 28 else "🔴", "Calor intenso pode ser gatilho; hidrate-se e evite sol."
     return {"condicao": "Temperatura", "valor": f"{temp}°C", "nivel": nivel, "emoji": emoji, "recomendacao": recomendacao}
 
-# --- IA Especialista ---
-if not os.path.exists(FAISS_INDEX_PATH):
-    raise FileNotFoundError(f"Índice '{FAISS_INDEX_PATH}' não encontrado. Execute 'fontes.py'.")
 
-embeddings = OllamaEmbeddings(model="nomic-embed-text")
+# --- IA Especialista (RAG) ---
+if not os.path.exists(FAISS_INDEX_PATH):
+    raise FileNotFoundError(f"Índice '{FAISS_INDEX_PATH}' não encontrado. Execute 'fontes.py' para criá-lo.")
+
+# --- helper para normalizar o nome do modelo de embeddings
+def _embed_model_name():
+    name = os.environ.get("GEMINI_EMBEDDING_MODEL", "text-embedding-004").strip()
+    return name if name.startswith("models/") else f"models/{name}"
+
+embeddings = GoogleGenerativeAIEmbeddings(
+    model=_embed_model_name(),
+    google_api_key=os.environ["GOOGLE_API_KEY"],
+)
+
+
 vectorstore = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
 retriever = vectorstore.as_retriever(search_kwargs={'k': 3})
-llm = OllamaLLM(model="gemma3", temperature=0.1)
 
+# >>> LLM principal (Gemini) — flash = mais rápido
+llm = ChatGoogleGenerativeAI(
+    model=os.environ.get("GEMINI_MODEL", "gemini-1.5-flash"),
+    google_api_key=os.environ["GOOGLE_API_KEY"],
+    temperature=0.1,
+    safety_settings={
+        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE, 
+        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+    },
+)
+
+# --- Prompt especialista em asma (mantido com ajustes mínimos) ---
 prompt_template = """
-Você é um assistente de IA especialista em asma, atuando como um analista de saúde.
-Sua missão é interpretar os DADOS DOS SENSORES DO PACIENTE, usando o CONTEXTO CIENTÍFICO como referência para os valores normais e de risco.
-Com base nessa análise, responda à PERGUNTA DO USUÁRIO, fornecendo um feedback claro sobre o seu estado respiratório atual.
-Se a pergunta for "como estou?", faça uma análise completa de todos os sensores. Destaque quaisquer valores que estejam fora do ideal e explique o que isso significa.
-Seja claro, objetivo e empático.
+Você é um assistente de IA especialista em asma, em PT-BR, empático e baseado em evidências.
 
-**Exemplo de Análise:**
-- Se a saturação de oxigênio for 94%, você deve identificar que está abaixo do ideal (95-100%) e explicar o risco de hipoxemia.
-- Se a frequência respiratória for 22 ipm, aponte que está elevada para um adulto em repouso (normal: 12-20 ipm) e que isso pode indicar dificuldade respiratória.
+=== Regras Fundamentais ===
+1) Foco na intenção do usuário:
+   - Se a pergunta for GERAL sobre asma (ex.: causas, prevenção, sintomas, tratamentos, informações de referência), responda apenas com base em evidências científicas, sem usar dados de sensores.
+   - Se a pergunta for PESSOAL sobre o estado atual (ex.: "como estou?", "meus dados estão normais?", "analise meus sensores"), sua prioridade MÁXIMA é analisar os `DADOS ATUAIS DOS SENSORES DO PACIENTE`.
 
-Use apenas o CONTEXTO CIENTÍFICO. Não invente informações.
-Finalize TODAS as respostas de análise com o aviso: "Importante: Esta é uma análise para fins educativos e não substitui um diagnóstico médico. Consulte seu médico."
+2) Processo de análise personalizada (somente quando aplicável):
+   a. Para cada sensor relevante, busque a faixa de normalidade usando a ferramenta `resposta_com_grounding`.
+   b. Compare o valor do paciente com a faixa de referência.
+   c. Explique o que isso significa para uma pessoa com asma, destacando riscos quando valores estiverem fora do ideal.
 
+3) Regra de citação:
+   - Ao usar a ferramenta `resposta_com_grounding`, cite a fonte SOMENTE se houver link confiável disponível.
+   - Use o formato: [fonte: exemplo.com]
+   - Se não houver fonte, NÃO invente citações nem placeholders. Simplesmente não cite.
+
+4) Aviso médico:
+   - Qualquer resposta que envolva sensores, sintomas ou sugestões deve terminar com:
+   "Importante: Esta é uma análise para fins educativos e não substitui um diagnóstico ou aconselhamento médico profissional. Se você não está se sentindo bem, consulte seu médico."
+
+5) Linguagem:
+   - Sempre em português (PT-BR).
+   - Empática, clara, objetiva e acessível. Evite jargões médicos complexos.
+
+=== Instruções de Resposta ===
+- Se PERGUNTA GERAL: responda de forma científica e direta, sem personalização.
+- Se PERGUNTA SOBRE ESTADO ATUAL: analise os sensores com base no CONTEXTO CIENTÍFICO e referências externas (grounding).
+- Não invente dados. Não force análise personalizada quando a intenção não for essa.
+- Nunca invente links. Só cite se houver fonte real e confiável.
+
+=== Contexto fornecido ===
 CONTEXTO CIENTÍFICO:
 {context}
 
-DADOS DOS SENSORES DO PACIENTE:
+DADOS ATUAIS DOS SENSORES DO PACIENTE:
 {sensor_data}
 
 PERGUNTA DO USUÁRIO:
 {question}
 
-ANÁLISE E RESPOSTA:
+RESPOSTA:
 """
 PROMPT = PromptTemplate(
     template=prompt_template,
@@ -123,12 +169,54 @@ chain = (
 
 def detectar_tipo_pergunta(pergunta):
     pergunta_lower = pergunta.lower()
-    if any(saudacao in pergunta_lower for saudacao in SAUDACOES):
+    if any(s in pergunta_lower for s in SAUDACOES):
         return "saudacao"
-    elif any(palavra in pergunta_lower for palavra in PALAVRAS_CHAVE_ASMA) or pergunta.strip():
+    elif any(p in pergunta_lower for p in PALAVRAS_CHAVE_ASMA) or pergunta.strip():
         return "asma"
     else:
         return "outro"
+
+# --- Função utilitária: Grounding com Google Search para perguntas gerais ---
+async def resposta_com_grounding(pergunta: str) -> str:
+    """
+    Usa o Gemini com Grounding (Pesquisa Google) para perguntas não diretamente ligadas aos sensores,
+    retornando conteúdo com fontes/citações.
+    """
+
+    genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
+    model = genai.GenerativeModel(model_name)
+
+    # Ativa Grounding com Google Search (docs oficiais abaixo)
+    # https://ai.google.dev/gemini-api/docs/google-search
+    # https://ai.google.dev/gemini-api/docs/grounding
+    tools = {"google_search_retrieval": {}}
+
+    # Recomendado: pedir citações inline
+    response = await asyncio.to_thread(
+        model.generate_content,
+        contents=[{"role": "user", "parts": [pergunta]}],
+        tools=tools,
+        generation_config={"temperature": 0.2, "top_p": 0.9},
+        # safety_settings pode ser ajustado aqui também
+    )
+
+    text = getattr(response, "text", None) or "".join(p.text for p in response.candidates[0].content.parts if hasattr(p, "text"))
+    # Opcional: anexar fontes quando disponíveis
+    try:
+        citations = []
+        grounding_metadata = response.candidates[0].grounding_metadata
+        if grounding_metadata and getattr(grounding_metadata, "grounding_chunks", None):
+            for chunk in grounding_metadata.grounding_chunks:
+                if getattr(chunk, "web", None) and getattr(chunk.web, "uri", None):
+                    citations.append(chunk.web.uri)
+        if citations:
+            text += "\n\nFontes: " + ", ".join(citations[:5])
+    except Exception:
+        pass
+
+    return text or "Não encontrei resultados suficientes no momento."
 
 # --- Rotas Flask ---
 @chat_bp.route("/chat")
@@ -140,17 +228,20 @@ async def dados_ambientais():
     try:
         lat, lon, city = await asyncio.to_thread(get_user_location)
         cache_key = f"dados-{lat}-{lon}"
-        if cache_key in cache: return jsonify(cache[cache_key])
+        if cache_key in cache:
+            return jsonify(cache[cache_key])
+
         api_key = os.getenv('API_WEATHER_KEY')
         air_task = asyncio.to_thread(get_air_quality, lat, lon, api_key)
         weather_task = asyncio.to_thread(get_weather, lat, lon)
         aqi, pm2_5, pm10 = await air_task
         t, humidity = await weather_task
+
         temperatura_amb = next((s["valor"] for s in lista_sensores if s["id"] == "temperatura-ambiente"), None)
         sugestoes_list = [
             analisar_qualidade_ar(aqi),
             analisar_temperatura(temperatura_amb if temperatura_amb is not None else t),
-            analisar_umidade(humidity)
+            analisar_umidade(humidity),
         ]
         response_data = {"cidade": city, "sugestoes_ambientais": sugestoes_list}
         cache[cache_key] = response_data
@@ -163,12 +254,14 @@ async def dados_ambientais():
 async def sugestoes_iniciais():
     try:
         prompt = (
-            "Sugira 3 perguntas curtas e muito comuns que um paciente com asma faria a um especialista. Inclua sempre 1 dessas perguntas algo como 'Como estou agora?' ou 'Meus dados estão normais?'. "
+            "Sugira 3 perguntas curtas e muito comuns que um paciente asmático faria a um especialista. "
+            "Inclua sempre 1 delas como 'Como estou agora?' ou 'Meus dados estão normais?'. "
             "Responda apenas com as 3 perguntas, cada uma em uma nova linha, sem marcadores."
-            "Sempre nas perguntas deixe explícito que se trata sobre um paciente asmático ou uma dúvida com relação à asma."
-                 )
-        resposta = await asyncio.to_thread(ollama.chat, model="gemma3", messages=[{"role": "user", "content": prompt}])
-        sugestoes = [linha.strip() for linha in resposta['message']['content'].split('\n') if linha.strip()][:3]
+        )
+        # llm.invoke é síncrono; rodamos em thread para não travar o event loop
+        resp = await asyncio.to_thread(llm.invoke, prompt)
+        texto = getattr(resp, "content", str(resp))
+        sugestoes = [linha.strip() for linha in texto.split("\n") if linha.strip()][:3]
         return jsonify({"sugestoes": sugestoes})
     except Exception as e:
         logging.error(f"Erro ao gerar sugestões: {str(e)}")
@@ -185,29 +278,28 @@ async def api_chat():
         tipo_pergunta = detectar_tipo_pergunta(pergunta)
         if tipo_pergunta == "saudacao":
             resposta = "Olá! Sou seu assistente para monitoramento da asma. Como posso ajudar a analisar seus dados hoje?"
+
         elif tipo_pergunta == "asma":
             logging.info(f"Pergunta recebida: '{pergunta}'")
-            
-            # ✅ CORREÇÃO: Trocado s['nome'] por s['id'] para corresponder à estrutura de dados.
-            # Adicionado .replace('-', ' ').title() para formatar o nome para exibição.
-            # Ex: "frequencia-respiratoria" se torna "Frequencia Respiratoria".
-            sensor_data_str = "\n".join([f"- {s['id'].replace('-', ' ').title()}: {s['valor']} {s['unidade']}" for s in lista_sensores])
-            if not sensor_data_str:
-                sensor_data_str = "Dados dos sensores não disponíveis."
-            
+
+            sensor_data_str = "\n".join(
+                [f"- {s['id'].replace('-', ' ').title()}: {s['valor']} {s['unidade']}" for s in lista_sensores]
+            ) or "Dados dos sensores não disponíveis."
             logging.info(f"Dados dos sensores formatados:\n{sensor_data_str}")
 
             result = await asyncio.to_thread(
                 chain.invoke,
                 {"question": pergunta, "sensor_data": sensor_data_str}
             )
-            
+
             resposta = result["result"]
             fontes = set(doc.metadata.get('source', 'Fonte não identificada') for doc in result.get('source_documents', []))
             if fontes:
                 resposta += f"\n\n*Fontes consultadas: {', '.join(fontes)}*"
+
         else:
-            resposta = "Desculpe, sou um assistente especializado em asma. Você tem alguma dúvida sobre o tema?"
+            # Para perguntas gerais: usar Grounding com Google Search
+            resposta = await resposta_com_grounding(pergunta)
 
         logging.info(f"Resposta enviada: '{resposta}'")
         return jsonify({"resposta": resposta})

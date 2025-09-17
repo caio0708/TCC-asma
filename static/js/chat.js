@@ -27,6 +27,7 @@ function adicionarMensagem(remetente, texto) {
   const container = document.getElementById("chat-container");
   const messageDiv = document.createElement("div");
   messageDiv.classList.add("message", remetente);
+
   const headerDiv = document.createElement("div");
   headerDiv.classList.add("message-header");
   const iconSpan = document.createElement("div");
@@ -34,25 +35,38 @@ function adicionarMensagem(remetente, texto) {
   iconSpan.textContent = remetente === "user" ? "🙋" : "🤖";
   const titleSpan = document.createElement("span");
   titleSpan.textContent = remetente === "user" ? "Você" : "Assistente IA";
+
   headerDiv.appendChild(iconSpan);
   headerDiv.appendChild(titleSpan);
+
   const p = document.createElement("p");
-  p.style.whiteSpace = "pre-line";
-  const formatted = texto.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-  p.innerHTML = formatted;
+  // ✅ MELHORIA: Processa o texto para suportar negrito e quebras de linha
+  // Substitui **texto** por <strong>texto</strong>
+  let formattedHtml = texto.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Substitui quebras de linha (\n) por <br> para renderização em HTML
+  formattedHtml = formattedHtml.replace(/\n/g, '<br>');
+  p.innerHTML = formattedHtml;
+
   const timestamp = document.createElement("span");
   timestamp.classList.add("timestamp");
   const now = new Date();
   timestamp.textContent = now.getHours() + ":" + String(now.getMinutes()).padStart(2, '0');
+
   messageDiv.appendChild(headerDiv);
   messageDiv.appendChild(p);
   messageDiv.appendChild(timestamp);
+
   container.appendChild(messageDiv);
+  // Garante que a conversa role para a mensagem mais recente
   container.scrollTop = container.scrollHeight;
+  
   const id = "msg-" + Date.now();
   messageDiv.setAttribute("id", id);
   return id;
 }
+
+// ✅ CORREÇÃO: Removido o '}' extra que fechava o escopo do arquivo incorretamente.
+// A função renderBotMessage não existia e foi removida.
 
 function removerMensagem(id) {
   const el = document.getElementById(id);
@@ -150,7 +164,7 @@ async function atualizarDadosAmbientais() {
   }
 }
 
-// Funções de sugestões de perguntas (sem alterações)
+// Funções de sugestões de perguntas 
 function atualizarQuickQuestions(perguntas) {
   const container = document.getElementById('quick-questions');
   if (!container) return;

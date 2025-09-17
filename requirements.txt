@@ -18,6 +18,12 @@ Flask[async]
 tensorflow_hub 
 dotenv
 sounddevice
+google-api-python-client>=2.100.0
+
+langchain-google-community
+ddgs
+
+
 
 # xgboost deve estar na versão 0.90  pip install xgboost==0.90
 
