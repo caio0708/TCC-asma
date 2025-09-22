@@ -65,7 +65,7 @@ usuarios_sensores = pd.read_csv("dados/sensores.csv")
 usuarios_sensores = usuarios_sensores.dropna(how='all')
 ultimo_sensor = usuarios_sensores.iloc[-1]
 
-p = float(ultimo_sensor["temperatura"])
+p = float(ultimo_sensor["temperatura-ambiente"])
 q = float(ultimo_sensor["umidade"])
 r = float(ultimo_sensor["qualidade-ar-pm25"])
 s = float(ultimo_sensor["qualidade-ar-pm10"])

@@ -21,6 +21,8 @@ from routes.api import get_weather, get_air_quality
 import uuid
 import librosa
 
+from routes.PERF import predict_perf 
+
 insights_bp = Blueprint('insights', __name__)
 
 # Configurações
@@ -419,22 +421,34 @@ def get_env_data():
         res['qualidade-ar-aqi'] = int(aqi) if aqi is not None else res.get('qualidade-ar-aqi', 0)
         res['qualidade-ar-pm25'] = float(pm2_5) if pm2_5 is not None else res.get('qualidade-ar-pm25', 0)
         res['qualidade-ar-pm10'] = float(pm10) if pm10 is not None else res.get('qualidade-ar-pm10', 0)
+
         # Garantir que contagem-tosse seja o valor máximo do dia atual
         if not df_raw.empty:
             today = pd.to_datetime(datetime.now().date())
             df_today = df_raw[pd.to_datetime(df_raw['Data']) == today]
             if not df_today.empty:
                 res['contagem-tosse'] = int(df_today['contagem-tosse'].max())
+        
+        # --- CÁLCULO DO PERF ---
+        # Chama a função de previsão, passando os dados atuais dos sensores
+        pefr_prediction = predict_perf(res)
+
         triggers = []
         if res.get('contagem-tosse', 0) > 3: triggers.append('Tosse Excessiva')
         if 0 < res.get('saturacao', 100) < 95: triggers.append('Baixa Saturação')
         if res.get('frequencia-respiratoria', 0) > 25: triggers.append('Respiração Acelerada')
         if res.get('temperatura-ambiente', 0) > 35: triggers.append('Calor Excessivo')
         if res.get('temperatura-corporal', 0) > 38: triggers.append('Febre Detectada')
+
+        # Adiciona gatilho com base na previsão do PERF
+        if pefr_prediction and pefr_prediction.get("zone") == "RISK":
+            triggers.append('Risco de Crise (PERF Baixo)')
+
         return {
             'timestamp': timestamp,
             'analysis': analysis_data,
             'triggers': triggers,
+            'pefr_prediction': pefr_prediction,  # Adiciona os dados de PERF na resposta
             'weekly_cough_data': weekly_cough_analysis if weekly_cough_analysis else {"labels": [], "data": []}
         }
     except (sqlite3.Error, ValueError, FileNotFoundError) as e:

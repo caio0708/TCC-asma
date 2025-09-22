@@ -6,8 +6,7 @@
   <title>Insights Respiratórios</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script> <!-- Opcional, mas bom para eixos de tempo -->
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script> <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 </head>
 <style>
@@ -45,6 +44,92 @@
      width: 100%;
   }
 
+  /* --- NOVOS ESTILOS PARA O MEDIDOR DE PERF --- */
+  .perf-analysis-section { 
+    margin-bottom: 2rem; 
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #eee;
+  }
+  .perf-analysis-section h3 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+  .perf-gauge { 
+    position: relative; 
+    width: 100%; 
+    margin-bottom: 1.5rem; 
+  }
+  .perf-gauge-bar {
+    display: flex;
+    width: 100%;
+    height: 30px;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .perf-gauge-bar .zone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.8rem;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+  }
+  .perf-gauge-bar .risk { background-color: #e74c3c; width: 50%; }
+  .perf-gauge-bar .moderate { background-color: #f39c12; width: 30%; }
+  .perf-gauge-bar .safe { background-color: #2ecc71; width: 20%; }
+
+  .perf-indicator {
+    position: absolute;
+    bottom: -35px; /* Posição abaixo da barra */
+    transform: translateX(-50%);
+    transition: left 0.5s ease-out;
+    text-align: center;
+    z-index: 10;
+  }
+  .perf-indicator::before { /* O triângulo apontando para cima */
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 15px solid #34495e;
+    margin: 0 auto 5px;
+  }
+  .perf-indicator span {
+    background-color: #34495e;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
+  .perf-details {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 1rem;
+    text-align: center;
+    font-size: 1rem;
+    color: #555;
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+  }
+  .perf-details div span { font-weight: bold; }
+  .perf-zone-text { font-weight: bold; }
+  .perf-zone-text .zone-label.risk { color: #e74c3c; }
+  .perf-zone-text .zone-label.moderate { color: #f39c12; }
+  .perf-zone-text .zone-label.safe { color: #2ecc71; }
+  /* --- FIM DOS NOVOS ESTILOS --- */
+
+
   /* Outros estilos do seu arquivo original... */
   .breathing-container{display:flex;flex-direction:column;align-items:center;gap:1rem;margin:2rem auto;max-width:400px}#breathingCircle{width:150px;height:150px;position:relative;display:flex;align-items:center;justify-content:center;transition:transform 3s ease-in-out}.circle-bg{fill:none;stroke:#d0e7ff;stroke-width:8}.circle-progress{fill:none;stroke:#4facfe;stroke-width:8;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .3s linear}#breathingText{font-size:1.2rem;font-weight:500;color:#333;text-align:center;position:absolute}#startGameBtn{background:#4facfe;color:#fff;border:none;padding:12px 24px;font-size:1rem;font-weight:600;border-radius:12px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:all .3s ease}#startGameBtn:active{transform:translateY(0);box-shadow:0 2px 6px rgba(0,0,0,.2)}.charts-section{border:1px solid #ddd;border-radius:8px;margin:2rem 0;overflow:hidden}.charts-header{display:flex;justify-content:space-between;align-items:center;background:#f5f5f5;padding:.75rem 1rem;cursor:pointer}.charts-header h3{margin:0;font-size:1.25rem}.toggle-charts-btn{background:none;border:none;font-size:1rem;transform:rotate(0deg);transition:transform .3s ease}.charts-section.collapsed .toggle-charts-btn{transform:rotate(180deg)}.charts-section.collapsed .insights-container{display:none}@media (min-width:600px){.breathing-container{flex-direction:row}}#downloadContainer a.download-btn{display:inline-block;margin-top:16px;padding:10px 20px;background-color:#0077cc;color:#fff;font-weight:700;border-radius:8px;text-decoration:none;box-shadow:0 4px 6px rgba(0,0,0,.2);transition:background-color .3s ease}#downloadContainer a.download-btn:hover{background-color:#005fa3}
 </style>
@@ -68,20 +153,34 @@
       <h2 class="section-title">Análise Detalhada da Saúde Respiratória</h2>
       <p class="subtitle">Resultados calculados a partir dos dados brutos dos sensores.</p>
 
-      <!-- NOVO: Seção para Resultados da Análise -->
       <section id="analysisResults" class="results-grid">
-        <!-- Cards de resultado serão injetados aqui pelo JS -->
+        </section>
+
+      <section id="perfAnalysis" class="perf-analysis-section">
+          <h3>Análise de Pico de Fluxo Expiratório (PEFR)</h3>
+          <div class="perf-gauge">
+              <div class="perf-gauge-bar">
+                  <div class="zone risk">Risco (&lt;50%)</div>
+                  <div class="zone moderate">Atenção (50-80%)</div>
+                  <div class="zone safe">Seguro (&gt;80%)</div>
+              </div>
+              <div id="perfIndicator" class="perf-indicator" style="left: 0%;">
+                   <span id="perfPercentage">--%</span>
+              </div>
+          </div>
+          <div class="perf-details">
+              <div>Previsão: <span id="perfPredicted">--</span> L/min</div>
+              <div>Calculada: <span id="perfReference">--</span> L/min</div>
+              <div class="perf-zone-text">Zona: <span id="perfZoneText" class="zone-label">--</span></div>
+          </div>
       </section>
 
-      <!-- Gatilhos atuais -->
       <section class="triggers">
         <h3>Gatilhos no Momento</h3>
         <ul id="currentTriggers">
-          <!-- itens injetados via JS -->
-        </ul>
+          </ul>
 
-      <!-- Gráficos para Paciente (agora com canvases definidos) -->
-          <h3>Gráficos da Análise de Sinais</h3>
+      <h3>Gráficos da Análise de Sinais</h3>
         <div class="insights-container charts-grid">
             <div class="card">
                 <h3>Sinal PPG e Batimentos Cardíacos</h3>
@@ -111,7 +210,6 @@
         </div>
       </section>
 
-      <!-- Seção do Exercício de Respiração -->
       <section class="minigame">
         <h3>Exercícios de Respiração - Box Breathing</h3>
         <div class="breathing-container">
@@ -125,7 +223,6 @@
         </div>
       </section>
 
-      <!-- Calendário -->
       <section class="calendar">
         <h3>Registro de Uso da Bombinha</h3>
         <div id='inhalerCalendar'></div>
@@ -133,11 +230,42 @@
     </div>
   </main>
 
-  <!-- Dados injetados pelo Flask -->
   <script type="text/javascript">
     window.env_data = {{ env_data | tojson | safe }};
     window.usage_events = {{ usage_events | tojson | safe }};
   </script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const pefrData = window.env_data && window.env_data.pefr_prediction;
+        const perfSection = document.getElementById('perfAnalysis');
+
+        if (perfSection && pefrData && !pefrData.error) {
+            // Atualiza os valores de texto
+            document.getElementById('perfPredicted').textContent = pefrData.predicted_pefr;
+            document.getElementById('perfReference').textContent = pefrData.reference_pefr;
+            document.getElementById('perfPercentage').textContent = pefrData.percentage.toFixed(1) + '%';
+            
+            const zoneTextElement = document.getElementById('perfZoneText');
+            zoneTextElement.textContent = pefrData.zone;
+
+            // Move o indicador para a posição correta na barra
+            const indicator = document.getElementById('perfIndicator');
+            // Limita o valor em 100% para não ultrapassar a barra visualmente
+            const positionPercentage = Math.min(pefrData.percentage, 100);
+            indicator.style.left = positionPercentage + '%';
+
+            // Adiciona a classe de cor correspondente à zona
+            const zoneClass = pefrData.zone.toLowerCase();
+            zoneTextElement.className = 'zone-label ' + zoneClass;
+
+        } else if (perfSection) {
+            // Caso não haja dados de PERF, exibe uma mensagem
+            perfSection.innerHTML = '<h3>Análise de Pico de Fluxo Expiratório (PERF)</h3><p>Dados de PERF indisponíveis no momento.</p>';
+        }
+    });
+  </script>
+
   <script src="{{ url_for('static', filename='js/insights.js') }}"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
