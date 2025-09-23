@@ -17,6 +17,7 @@ import requests
 
 # --- Parâmetros de Configuração ---
 YAMNET_MODEL_URL = "https://tfhub.dev/google/yamnet/1"
+yamnet_model = hub.load(YAMNET_MODEL_URL)
 CLASS_MAP_URL = "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv"
 DETECTION_THRESHOLD = 0.15
 COOLDOWN_SECONDS = 1.0 # Aumentado para evitar contagens duplas
@@ -87,7 +88,7 @@ def iniciar_detector_tosse(on_cough_detected_callback):
             print(f"[Detector de Tosse] Status do Stream: {status}", flush=True)
 
         audio_data = indata[:, 0]
-        scores, embeddings, spectrogram = model(audio_data)
+        scores, embeddings, spectrogram = yamnet_model(audio_data)
         scores_np = scores.numpy()
         
         cough_scores = scores_np[:, COUGH_CLASS_INDEX]
