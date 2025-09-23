@@ -415,7 +415,14 @@ def get_env_data():
                         res[sensor_id] = value
         temp, humidity = get_weather(lat, lon)
         api_key = os.getenv('API_WEATHER_KEY')
-        aqi, pm2_5, pm10 = get_air_quality(lat, lon, api_key)
+        # Chama a função corrigida e verifica o resultado
+        air_quality_data = get_air_quality(lat, lon, api_key)
+        if air_quality_data:
+            aqi, pm2_5, pm10, o3, no2, so2 = air_quality_data
+        else:
+            # Define valores padrão caso a API tenha falhado
+            aqi, pm2_5, pm10, o3, no2, so2 = (None, None, None, None, None, None)
+        # Atualiza o dicionário 'res' com os dados da API (ou com os valores padrão)
         res['temperatura-ambiente'] = round(float(temp), 2) if temp is not None else res.get('temperatura-ambiente', 0)
         res['umidade'] = round(float(humidity), 2) if humidity is not None else res.get('umidade', 0)
         res['qualidade-ar-aqi'] = int(aqi) if aqi is not None else res.get('qualidade-ar-aqi', 0)
@@ -475,13 +482,15 @@ def convert_webm_to_wav(webm_path, wav_path):
 def insights():
     env_data = get_env_data()
     usage_events = session.get('usage_events', [])
-    return render_template('insights.html', env_data=env_data, usage_events=usage_events)
+    #  Obtenha o nome de usuário da sessão
+    username = session.get('username', 'Visitante')
+    return render_template('insights.html', env_data=env_data, usage_events=usage_events,nome_usuario=username)
 
 @insights_bp.route('/api/data')
 def api_data():
     data = {
         'env_data': get_env_data(),
-        'usage_events': session.get('usage_events', [])
+        'usage_events': session.get('usage_events', []),
     }
    # print(f"Insights.py | api_data: Retornando dados: {json.dumps(data, indent=2)}")
     return jsonify(data)

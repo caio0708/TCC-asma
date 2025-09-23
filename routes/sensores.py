@@ -57,9 +57,9 @@ COUGH_COUNT = get_today_cough_count_from_db()
 DB_COLUMNS = [
     'Data', 'Hora', 'frequencia-respiratoria', 'batimentos-cardiacos', 'saturacao',
     'temperatura-corporal', 'temperatura-ambiente', 'temperatura-oximetro', 'qualidade-ar-pm25',
-    'qualidade-ar-pm10', 'qualidade-ar-aqi', 'piezo', 'contagem-tosse', 'som',
-    'umidade', 'acelerometro-x', 'acelerometro-y', 'acelerometro-z', 'giroscopio-x',
-    'giroscopio-y', 'giroscopio-z'
+    'qualidade-ar-pm10', 'qualidade-ar-aqi', 'qualidade-ar-o3', 'qualidade-ar-no2', 'qualidade-ar-so2', 
+    'piezo', 'contagem-tosse', 'som', 'umidade', 'acelerometro-x', 'acelerometro-y', 'acelerometro-z', 
+    'giroscopio-x', 'giroscopio-y', 'giroscopio-z'
 ]
 
 SENSORES_PADRAO = [
@@ -72,6 +72,9 @@ SENSORES_PADRAO = [
     {"id": "qualidade-ar-pm25", "valor": 0, "unidade": "µg/m³"},
     {"id": "qualidade-ar-pm10", "valor": 0, "unidade": "µg/m³"},
     {"id": "qualidade-ar-aqi", "valor": 0, "unidade": ""},
+    {"id": "qualidade-ar-o3", "valor": 0, "unidade": "µg/m³"},
+    {"id": "qualidade-ar-no2", "valor": 0, "unidade": "µg/m³"},
+    {"id": "qualidade-ar-so2", "valor": 0, "unidade": "µg/m³"},
     {"id": "piezo", "valor": 0, "unidade": "Hz"},
     {"id": "contagem-tosse", "valor": 0, "unidade": "no dia"},
     {"id": "som", "valor": 0, "unidade": "no dia"},
@@ -89,7 +92,7 @@ def inicializar_sensores():
     lat, lon, city = get_user_location()
     api_key = os.getenv('API_WEATHER_KEY')
     temp, humidity = get_weather(lat, lon)
-    aqi, pm2_5, pm10 = get_air_quality(lat, lon, api_key)
+    aqi, pm2_5, pm10, o3, no2, so2 = get_air_quality(lat, lon, api_key)
     sensores = [dict(s) for s in SENSORES_PADRAO]
     with sensor_lock:
         for s in sensores:
@@ -101,6 +104,12 @@ def inicializar_sensores():
                 s['valor'] = float(pm10) if pm10 is not None else 0
             elif s['id'] == 'qualidade-ar-aqi':
                 s['valor'] = float(aqi) if aqi is not None else 0
+            elif s['id'] == 'qualidade-ar-o3':
+                s['valor'] = float(o3) if aqi is not None else 0
+            elif s['id'] == 'qualidade-ar-no2':
+                s['valor'] = float(no2) if aqi is not None else 0
+            elif s['id'] == 'qualidade-ar-so2':
+                s['valor'] = float(so2) if aqi is not None else 0                
             elif s['id'] == 'temperatura-ambiente':
                 s['valor'] = float(temp) if temp is not None else 0
     return sensores
@@ -198,10 +207,11 @@ def salvar_dados_db():
                     agora.strftime("%H:%M:%S")
                 ] + [float(sensor_dict.get(col, 0)) for col in DB_COLUMNS[2:]]
                 
-                # Log para depuração
-                for col, val in zip(DB_COLUMNS[2:], values[2:]):
-                    if val == 0 and col != 'contagem-tosse':
-                        print(f"--- Aviso: Salvando valor 0 para '{col}' ---")
+                # Log para depuração (ATIVAR SE QUISER VER DADOS SENDO RECEBIDOS NOS SENSORES TD HR)
+                
+                # for col, val in zip(DB_COLUMNS[2:], values[2:]):
+                #     if val == 0 and col != 'contagem-tosse':
+                #         print(f"--- Aviso: Salvando valor 0 para '{col}' ---")
 
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
@@ -254,5 +264,30 @@ def sensores():
 
 @sensores_bp.route('/api/sensores')
 def api_sensores():
+    global COUGH_COUNT
     with sensor_lock:
+        # Para resolver a inconsistência, sincronizamos o contador de tosse com o banco de dados.
+        # O valor correto é o maior entre o que está na memória (que pode ter acabado de ser incrementado)
+        # e o valor máximo salvo no banco de dados para o dia.
+        db_cough_count = get_today_cough_count_from_db()
+        
+        # A contagem de tosse em memória (COUGH_COUNT) pode ser maior se uma tosse
+        # foi detectada mas ainda não foi salva no banco.
+        if COUGH_COUNT > db_cough_count:
+            correct_cough_count = COUGH_COUNT
+        else:
+            correct_cough_count = db_cough_count
+            # Atualiza a contagem em memória se o DB tiver um valor maior (ex: após um restart)
+            COUGH_COUNT = db_cough_count
+
+        found = False
+        for sensor in lista_sensores:
+            if sensor['id'] == 'contagem-tosse':
+                sensor['valor'] = correct_cough_count
+                found = True
+                break
+        
+        if not found:
+             lista_sensores.append({'id': 'contagem-tosse', 'valor': correct_cough_count, 'unidade': 'no dia'})
+
         return jsonify(lista_sensores)

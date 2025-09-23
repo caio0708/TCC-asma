@@ -52,23 +52,64 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // Inicializar gráficos com dados iniciais (código original mantido)
-    initChart('airQualityChart', {
-        type: 'bar',
-        data: {
-            labels: airLabels,
-            datasets: [{
-                label: 'Qualidade do Ar',
-                data: airData.map(v => (v === null || isNaN(v)) ? 0 : v),
-                backgroundColor: ['#EF4444', '#F97316', '#FCD34D']
-            }]
+// 1. Defina os níveis de risco para cada poluente (exemplo, valores em µg/m³)
+const airQualityThresholds = {
+    'AQI':      { moderate: 2, bad: 4 },
+    'PM2.5':    { moderate: 10, bad: 25 },
+    'PM10':     { moderate: 20, bad: 50 },
+    'O3':       { moderate: 60, bad: 120 },
+    'NO2':      { moderate: 40, bad: 100 },
+    'SO2':      { moderate: 20, bad: 50 }
+};
+
+// 2. Função para obter a cor com base no valor e no poluente
+function getBarColor(pollutant, value) {
+    const thresholds = airQualityThresholds[pollutant];
+    if (!thresholds) return '#A5B4FC'; // Cor padrão
+
+    if (value >= thresholds.bad) {
+        return '#EF4444'; // Vermelho (Ruim)
+    }
+    if (value >= thresholds.moderate) {
+        return '#FBBF24'; // Amarelo (Moderado)
+    }
+    return '#34D399'; // Verde (Bom)
+}
+
+// 3. Calcule as cores dinamicamente antes de criar o gráfico
+const backgroundColors = airLabels.map((label, index) => {
+    return getBarColor(label, airData[index]);
+});
+
+// 4. Crie o gráfico
+initChart('airQualityChart', {
+    type: 'bar',
+    data: {
+        labels: airLabels,
+        datasets: [{
+            label: 'Qualidade do Ar',
+            data: airData.map(v => (v === null || isNaN(v)) ? 0 : v),
+            // --- COR DINÂMICA APLICADA AQUI ---
+            backgroundColor: backgroundColors
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            // Você pode combinar esta opção com a escala logarítmica da Opção 1!
+            y: {
+                type: 'logarithmic', // Combinação poderosa!
+                beginAtZero: true
+            }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true } },
-            plugins: { legend: { display: false } }
+        plugins: {
+            legend: {
+                display: false
+            }
         }
-    });
+    }
+});
 
     initChart('historicalDataChart', {
         type: 'line',
@@ -78,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 {
                     label: 'Temperatura Corporal (°C)',
                     data: bodyTempData.map(v => (v === null || isNaN(v)) ? null : v),
-                    borderColor: '#f97316',
+                    borderColor: '#ec7017ff',
                     yAxisID: 'y_temp',
                     tension: 0.3,
                     spanGaps: true
@@ -86,7 +127,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 {
                     label: 'Temperatura Ambiente (°C)',
                     data: ambientTempData.map(v => (v === null || isNaN(v)) ? null : v),
-                    borderColor: '#3b82f6',
+                    borderColor: '#f3d421ff',
                     yAxisID: 'y_temp',
                     tension: 0.3,
                     spanGaps: true
@@ -94,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 {
                     label: 'Umidade (%)',
                     data: humidityData.map(v => (v === null || isNaN(v)) ? null : v),
-                    borderColor: '#10b981',
+                    borderColor: '#208ff7ff',
                     yAxisID: 'y_percent',
                     tension: 0.3,
                     spanGaps: true
@@ -102,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 {
                     label: 'Saturação Oxi (%)',
                     data: spo2Data.map(v => (v === null || isNaN(v)) ? null : v),
-                    borderColor: '#ef4444',
+                    borderColor: '#eb2121ff',
                     yAxisID: 'y_percent',
                     tension: 0.3,
                     spanGaps: true

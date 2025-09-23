@@ -234,7 +234,7 @@ async def dados_ambientais():
         api_key = os.getenv('API_WEATHER_KEY')
         air_task = asyncio.to_thread(get_air_quality, lat, lon, api_key)
         weather_task = asyncio.to_thread(get_weather, lat, lon)
-        aqi, pm2_5, pm10 = await air_task
+        aqi, pm2_5, pm10, o3, no2, so2 = await air_task
         t, humidity = await weather_task
 
         temperatura_amb = next((s["valor"] for s in lista_sensores if s["id"] == "temperatura-ambiente"), None)
