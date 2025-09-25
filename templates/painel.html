@@ -6,10 +6,94 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+  <style>
+    /* ================================================================= */
+    /* SEÇÃO DOS CARDS DE RESUMO (NOVO DESIGN MODERNO)                   */
+    /* ================================================================= */
+    /* Container principal dos cards */
+    .daily-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Layout responsivo */
+      gap: 1.5rem; /* Espaçamento entre os cards */
+      margin-top: 1.5rem;
+    }
+
+    /* Estilo individual de cada card */
+    .card {
+      background: #ffffff;
+      border-radius: 16px; /* Bordas mais arredondadas */
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border: 1px solid #eef2f7; /* Borda sutil */
+      box-shadow: 0 8px 24px rgba(0, 48, 114, 0.05); /* Sombra suave para elevação */
+      transition: all 0.3s ease;
+      min-height: 160px; /* Altura mínima para consistência */
+    }
+
+    .card:hover {
+      transform: translateY(-5px); /* Efeito de elevação no hover */
+      box-shadow: 0 12px 28px rgba(0, 48, 114, 0.1);
+      border-color: #dbe6fd;
+    }
+
+    /* Cabeçalho do card (Ícone e Título) */
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: #5a677d; /* Cor mais suave para o texto */
+    }
+
+    .card-header .icon {
+      font-size: 1.5rem; /* Tamanho do ícone */
+      color: #4a80e3;   /* Cor principal para os ícones 4a80e3 */
+    }
+
+    .card-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    /* Valor principal do card */
+    .card-value {
+      display: flex;
+      align-items: baseline; /* Alinha o número e a unidade */
+      margin: 0.5rem 0;
+      color: #0e1522; /* Cor escura e forte para o valor */
+    }
+
+    /* Estilo para o número principal */
+    .card-value .value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: #1E408A; /* Cor mais suave */
+    }
+
+    /* Estilo para a unidade (ex: °C, %) */
+    .card-value .unit {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-left: 0.25rem;
+      color: #5a677d; /* Cor mais suave */
+    }
+
+    /* Informação de atualização */
+    .card-updated {
+      font-size: 0.8rem;
+      color: #8a96aa; /* Cor bem sutil */
+      margin-top: auto; /* Empurra para o final do card */
+      padding-top: 0.5rem;
+    }
+  </style>
 </head>
 <body>
 
-  <!-- Barra de Navegação -->
   <nav class="navbar">
     <div class="logo">
       <img src="{{ url_for('static', filename='img/Logo.jpg') }}" alt="Logo">
@@ -24,9 +108,7 @@
     </ul>
   </nav>
 
-  <!-- Container Principal -->
   <div class="container">
-    <!-- Cabeçalho -->
     <div class="header">
       <div class="header-left">
         <h1>Painel de Saúde</h1>
@@ -37,37 +119,41 @@
       </div>
     </div>
 
-    <!-- ================================================================= -->
-    <!-- SEÇÃO DOS CARDS DE RESUMO (CORRIGIDA)                             -->
-    <!-- ================================================================= -->
     <div class="daily-summary">
-      {# Mapeia o título do card para o ID do sensor usado na API e no JS #}
-      {% set id_map = {
-        "Temperatura Corporal": "temperatura-corporal",
-        "Temperatura Ambiente": "temperatura-ambiente",
-        "Umidade": "umidade",
-        "Saturação O₂": "saturacao",
-        "Tosse (dia)": "contagem-tosse"
+      {# 
+        Mapeia o título para o ID do sensor e para a classe do ícone (ex: Font Awesome).
+        Você pode encontrar mais ícones em fontawesome.com
+      #}
+      {% set card_data = {
+        "Temperatura Corporal": {"id": "temperatura-corporal", "icon": "fas fa-thermometer-half"},
+        "Temperatura Ambiente": {"id": "temperatura-ambiente", "icon": "fas fa-cloud-sun"},
+        "Umidade": {"id": "umidade", "icon": "fas fa-tint"},
+        "Saturação O₂": {"id": "saturacao", "icon": "fas fa-lungs"},
+        "Tosse (dia)": {"id": "contagem-tosse", "icon": "fas fa-head-side-cough"}
       } %}
 
       {% for item in daily_summary %}
-        {% set sensor_id = id_map[item.title] %}
-        
-        <div class="card" id="card-{{ sensor_id }}">
-          <div class="card-title">{{ item.title }}</div>
-          
-          <div class="card-value">
-            <div id="valor-{{ sensor_id }}">{{ item.value }}</div>
-            <span>{{ item.unit }}</span>
-          </div>
+        {% set data = card_data[item.title] %}
+        {% if data %}
+          <div class="card" id="card-{{ data.id }}">
+            
+            <div class="card-header">
+              <i class="icon {{ data.icon }}"></i>
+              <div class="card-title">{{ item.title }}</div>
+            </div>
+            
+            <div class="card-value">
+              <span id="valor-{{ data.id }}" class="value">{{ item.value }}</span>
+              <span class="unit">{{ item.unit }}</span>
+            </div>
 
-          {# O status agora tem um ID para o JS encontrar #}
-          <div class="card-updated" id="status-{{ sensor_id }}">Carregando...</div>
-        </div>
+            <div class="card-updated" id="status-{{ data.id }}">Carregando...</div>
+
+          </div>
+        {% endif %}
       {% endfor %}
     </div>
 
-    <!-- Seção de Monitoramento e Previsão -->
     <h2 class="section-title" style="margin-top: 2rem;">Monitoramento e Previsão</h2>
     <div class="content-row">
       <div class="graphs-section">
@@ -83,11 +169,9 @@
         </div>
       </div>
       
-      <!-- Flip Container (Cartão de Informações) -->
       <div class="dashboard-container" style="display: flex; gap: 2rem; flex-wrap: wrap;">
         <div class="flip-card">
           <div class="flip-card-inner" onclick="this.classList.toggle('flipped')">
-            <!-- Frente -->
             <div class="flip-card-front">
               <h3>Informações Ambientais</h3>
               <div class="info-box">
@@ -101,7 +185,6 @@
                 <span class="tag recommended">Recomendado</span>
               </div>
             </div>
-            <!-- Verso -->
             <div class="flip-card-back">
               <h3>Entendendo os Indicadores</h3>
               <div class="info-box">
@@ -126,8 +209,7 @@
     </div>
   </div>
 
-  <!-- Adicionando os dados do Python para o JavaScript -->
-    <script>
+  <script>
         const airLabels = {{ air_quality["labels"] | tojson }};
         const airData = {{ air_quality["values"] | tojson }};
         const historicalLabels = {{ historical_chart_data["labels"] | tojson }};

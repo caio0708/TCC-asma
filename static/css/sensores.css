@@ -1,0 +1,248 @@
+/* Importação da Fonte Inter */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root{
+  --bg-color:#f4f6f8;
+  --secondary-color: #1e408a;
+  --surface-color:#ffffff;
+  --white: #ffffff;
+  --text-primary:#1E408A;
+  --text-secondary:#475467;
+  --accent-color:#0EA5E9;
+  --accent-press:#3451ee;
+  --border-color:#eff0e5;
+  --icon-bg-color:#eaf2ff;
+  --success:#12b76a;
+  --warn:#f79009;
+  --danger:#f04438;
+}
+
+/* Barra de Navegação */
+.navbar {
+  position: relative; /* Necessário para posicionar os links absolutamente */
+  display: flex;
+  align-items: center;
+  background-color: var(--secondary-color);
+  padding: 10px 20px;
+  color: var(--white);
+}
+
+.navbar .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.navbar .logo img {
+  width: 30px;
+  height: auto;
+}
+
+.nav-links {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  list-style: none;
+}
+
+.nav-links li a {
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nav-links li a.active,
+.nav-links li a:hover {
+  color: var(--accent-color);
+}
+
+/* Container Flexível */
+.page-container {
+  display: flex;
+  gap: 20px;
+}
+
+    /* Base de tipografia mais legível */
+    html{ font-size:18px; }
+    @media (max-width: 480px){ html{ font-size: 17px; } }
+    body{
+      margin:0;
+      background:var(--bg-color);
+      color:var(--text-primary);
+      font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+      line-height:1.45;
+      -webkit-font-smoothing:antialiased;
+      text-rendering:optimizeLegibility;
+    }
+
+    main{
+      padding:2rem 1rem 3rem;
+      display:flex; justify-content:center;
+    }
+
+    /* Largura máxima aumentada */
+    .sensor-page{
+      width:100%;
+      max-width:1500px;
+    }
+
+    /* Container dos cards em grid */
+    .sensor-cards-container{
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      align-items: stretch; /* Garante que todos os cards na mesma linha tenham a mesma altura */
+    }
+
+    /* Card individual */
+    .card{
+      background: var(--surface-color);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      box-shadow: 0 6px 24px rgba(16,24,40,.04);
+      display:grid;
+      grid-template-columns: 64px 1fr auto;
+      grid-template-areas: "icon info value" "icon info status";
+      align-items: stretch;
+      gap: 1.25rem;
+      padding: 1.25rem 1.5rem;
+      transition: background-color .18s ease, transform .18s ease, box-shadow .18s ease;
+      border-left: 6px solid transparent;
+    }
+
+    .card:hover{
+      background: #fdfdff;
+      transform: translateY(-3px);
+      box-shadow: 0 12px 36px rgba(16,24,40,.07);
+    }
+
+    /* --- CONTROLE DE ALINHAMENTO INTERNO --- */
+    .card .icon-bubble{
+        grid-area: icon;
+        align-self: center; /* Centraliza o ícone verticalmente */
+    }
+    
+    .card .card-info {
+        grid-area: info;
+        display: flex;
+        flex-direction: column;
+        justify-content: center; /* Centraliza o bloco de texto verticalmente */
+        gap: 0.15rem; /* Espaço entre título e descrição */
+    }
+
+    .card .card-value{
+        grid-area: value;
+        align-self: center; /* Centraliza o valor verticalmente */
+    }
+     .card .card-updated{
+        grid-area: status;
+        align-self: center; /* Centraliza o status verticalmente */
+    }
+
+        /* Informação de atualização */
+    .card-updated {
+      font-size: 0.8rem;
+      color: #8a96aa; /* Cor bem sutil */
+      margin-top: auto; /* Empurra para o final do card */
+      padding-top: 0.5rem;
+    }
+
+    /* Bolha do ícone */
+    .icon-bubble{
+      width:52px; height:52px;
+      display:inline-flex; align-items:center; justify-content:center;
+      border-radius:14px;
+      background:var(--icon-bg-color);
+      color:var(--accent-color);
+      font-size:1.65rem;
+      transition: background-color .15s ease, color .15s ease, transform .15s ease;
+      outline: 2px solid transparent; outline-offset: 3px;
+    }
+    .icon-bubble i{ stroke-width:1.6; }
+    .icon-bubble:hover, .icon-bubble:focus-visible{
+      background:var(--accent-color);
+      color:#fff;
+      transform: translateY(-1px);
+      cursor:default;
+      outline-color: rgba(74,105,255,.15);
+    }
+    .icon-bubble:active{ background:var(--accent-press); transform:translateY(0); }
+
+    /* Títulos e descrições (ajustados) */
+    .card-title{
+      font-size:1.1rem; /* Mais destaque */
+      font-weight:600;
+      margin:0; padding:0; line-height:1.2;
+      color:var(--text-primary);
+    }
+    .card p{
+      margin: 0; /* Remove margem antiga */
+      color:var(--text-secondary);
+      font-size:.9rem;
+    }
+
+    /* Valores */
+    .card-value{
+      text-align:right;
+      font-size:2.00rem;
+      font-weight:700;
+      color:var(--text-primary);
+      margin:0;
+    }
+    .card-value span{
+      font-weight:600;
+      color:var(--text-secondary);
+      margin-left:.25rem;
+    }
+
+    /* Atualizado em */
+    .card-updated{
+      display:flex; align-items:center; gap:.5rem;
+      font-size:.92rem; color:var(--text-secondary);
+      white-space:nowrap;
+    }
+    .card-updated i{ font-size:1.15rem; }
+
+    /* Múltiplos valores (acel/gyro) */
+    .card-value.multi-value{
+      display:flex; flex-direction:column;
+      gap:.45rem; text-align:right; font-size:1rem;
+    }
+    .multi-value .axis-label{ font-weight:700; color:var(--text-primary); margin-right:.35rem; }
+    .multi-value .axis-value{ font-weight:600; color:var(--text-secondary); }
+
+    /* Responsividade */
+    @media (max-width: 1024px){
+      .sensor-cards-container{
+        grid-template-columns: 1fr; /* Volta para 1 coluna em telas menores */
+      }
+    }
+    @media (max-width: 640px){
+      .card{
+        grid-template-columns: 56px 1fr;
+        grid-template-areas:
+          "icon info"
+          "icon value"
+          "icon status";
+        align-items:start;
+      }
+      .card .card-info {
+          justify-content: flex-start;
+          padding-top: 0.25rem;
+      }
+      .card-value{ text-align:left; margin-top:.25rem; }
+      .card-updated{ margin-top:.25rem; }
+    }
+
+    /* --- NOVO: Cores dos Indicadores de Estado --- */
+.card.is-ok {
+    border-left-color: var(--success);
+}
+.card.is-warn {
+    border-left-color: var(--warn);
+}
+.card.is-bad {
+    border-left-color: var(--danger);
+}

@@ -251,21 +251,23 @@ async def dados_ambientais():
         return jsonify({"error": "Não foi possível obter os dados ambientais."}), 500
 
 @chat_bp.route("/api/sugestoes-iniciais", methods=["GET"])
-async def sugestoes_iniciais():
+def sugestoes_iniciais():
+    """
+    Retorna uma lista fixa de perguntas sugeridas para o chat.
+    """
     try:
-        prompt = (
-            "Sugira 3 perguntas curtas e muito comuns que um paciente asmático faria a um especialista. "
-            "Inclua sempre 1 delas como 'Como estou agora?' ou 'Meus dados estão normais?'. "
-            "Responda apenas com as 3 perguntas, cada uma em uma nova linha, sem marcadores."
-        )
-        # llm.invoke é síncrono; rodamos em thread para não travar o event loop
-        resp = await asyncio.to_thread(llm.invoke, prompt)
-        texto = getattr(resp, "content", str(resp))
-        sugestoes = [linha.strip() for linha in texto.split("\n") if linha.strip()][:3]
+        # Lista de perguntas fixas, conforme solicitado
+        sugestoes = [
+            "Como estão meus sintomas?",
+            "Faça um relatório da minha situação atual",
+            "Como está o ambiente para um asmático?"
+        ]
         return jsonify({"sugestoes": sugestoes})
     except Exception as e:
-        logging.error(f"Erro ao gerar sugestões: {str(e)}")
-        return jsonify({"error": "Não foi possível gerar sugestões."}), 500
+        # É bom manter o log de erros, caso algo inesperado aconteça
+        logging.error(f"Erro inesperado ao gerar sugestões fixas: {str(e)}")
+        return jsonify({"error": "Não foi possível carregar as sugestões."}), 500
+
 
 @chat_bp.route("/api/chat", methods=["POST"])
 async def api_chat():

@@ -526,42 +526,6 @@ body {
   background-color: var(--accent-color);
 }
 
-/* Resumo Diário */
-.daily-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.card {
-  background-color: var(--white);
-  border-radius: var(--border-radius);
-  padding: 20px;
-  box-shadow: var(--shadow-sm);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-left: 4px solid transparent;
-  transition: transform 0.2s ease;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-}
-
-.card-title {
-  font-size: 0.9rem;
-  color: var(--text-dark);
-  font-weight: 500;
-}
-
-
-
-.card-updated {
-  color: var(--text-light-gray);
-  font-size: 0.8rem;
-}
 
 /* Monitoramento e Tendências */
 .content-row {
@@ -978,9 +942,6 @@ canvas {
 .tag.global { background-color: #17a2b8; }
 .tag.alert { background-color: #dc3545; }
 .tag.moderate { background-color: #ffc107; color: black; }
-
-
-
 
 .bot-message .chat-bubble {
   background-color: #f0f4ff;

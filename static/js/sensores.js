@@ -82,19 +82,96 @@ function atualizarValoresDosSensores(sensores) {
 
     const card = document.querySelector(`.card[data-id="${sensor.id}"]`);
 
-    if (card) {
-      const valorElemento = card.querySelector('.card-value');
-      const horarioElemento = card.querySelector('.card-updated');
+// Dentro da função atualizarValoresDosSensores()
+if (card) {
+  const valorElemento = card.querySelector('.card-value');
+  const horarioElemento = card.querySelector('.card-updated');
 
-      if (valorElemento) {
-        valorElemento.innerHTML = `${sensor.valor} <span style="font-size: 0.9rem;">${sensor.unidade}</span>`;
-      }
+  if (valorElemento) {
+    valorElemento.innerHTML = `${sensor.valor} <span style="font-size: 0.9rem;">${sensor.unidade}</span>`;
+  }
 
-      if (horarioElemento) {
-        horarioElemento.textContent = `Atualizado: ${agora}`;
-      }
-    } else {
-      console.warn(`Card com data-id="${sensor.id}" não encontrado.`);
-    }
+  if (horarioElemento) {
+    horarioElemento.textContent = `Atualizado: ${agora}`;
+  }
+
+  // --- NOVO: aplica a classe de status ---
+  const statusClass = getSensorStatus(sensor.id, sensor.valor);
+  card.classList.remove('is-ok', 'is-warn', 'is-bad'); // limpa anteriores
+  if (statusClass) {
+    card.classList.add(statusClass);
+  }
+}
   });
+}
+
+function getSensorStatus(id, valor) {
+    const v = parseFloat(valor);
+    if (isNaN(v)) return ''; // Não aplica status se o valor não for numérico
+
+    switch (id) {
+        case 'batimentos-cardiacos':
+            if (v >= 60 && v <= 100) return 'is-ok';
+            if ((v >= 50 && v <= 59) || (v >= 101 && v <= 120)) return 'is-warn';
+            if (v < 50 || v > 120) return 'is-bad';
+            break;
+        case 'saturacao':
+            if (v >= 95 && v <= 100) return 'is-ok';
+            if (v >= 91 && v <= 94) return 'is-warn';
+            if (v <= 90 ) return 'is-bad';
+            break;
+        case 'temperatura-corporal':
+            if (v >= 36.5 && v <= 37.5) return 'is-ok';
+            if (v >= 37.6 && v <= 38) return 'is-warn';
+            if (v <= 35.5 || v >= 38.1) return 'is-bad';
+            break;
+        case 'contagem-tosse':
+            if (v >= 0 && v <= 5) return 'is-ok';
+            if ((v >= 6 && v <= 14)) return 'is-warn';
+            if (v >= 15) return 'is-bad';
+            break;
+        case 'qualidade-ar-aqi':
+            if (v >= 0 && v <= 1) return 'is-ok';
+            if (v > 1 && v <= 3) return 'is-warn';
+            if (v >= 4) return 'is-bad';
+            break;
+        case 'qualidade-ar-pm25':
+            if (v >= 0 && v <= 12) return 'is-ok';
+            if (v >= 12.1 && v <= 35.4) return 'is-warn';
+            if (v >= 35.5) return 'is-bad';
+            break;
+        case 'qualidade-ar-pm10':
+             if (v >= 0 && v <= 54) return 'is-ok';
+             if ((v >= 55 && v <= 154)) return 'is-warn';
+             if (v >= 155 ) return 'is-bad';
+             break;
+        case 'qualidade-ar-o3':
+            if (v >= 0 && v <= 54) return 'is-ok';
+            if (v >= 55 && v <= 70) return 'is-warn';
+            if (v >= 71) return 'is-bad';
+            break;
+        case 'qualidade-ar-no2':
+            if (v >= 0 && v <= 53) return 'is-ok';
+            if (v >= 54 && v <= 100) return 'is-warn';
+            if (v >= 101) return 'is-bad';
+            break;
+        case 'qualidade-ar-so2':
+            if (v >= 0 && v <= 35) return 'is-ok';
+            if (v >= 36 && v <= 75) return 'is-warn';
+            if (v >= 76 ) return 'is-bad';
+            break;
+        case 'temperatura-ambiente':
+            if (v >= 18 && v <= 24) return 'is-ok';
+            if ((v >= 12 && v <= 17) || (v >= 25 && v <= 29)) return 'is-warn';
+            if ((v <= 12) || (v >= 30 )) return 'is-bad';
+            break;
+        case 'umidade':
+            if (v >= 40 && v <= 60) return 'is-ok';
+            if ((v >= 30 && v <= 39) || (v >= 61 && v <= 70)) return 'is-warn';
+            if ((v <= 30) || (v >= 70 )) return 'is-bad';
+            break;
+        default:
+            return ''; // Nenhum status para sensores não listados
+    }
+    return '';
 }
