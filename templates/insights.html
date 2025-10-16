@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Insights Respiratórios</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/insights.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script> <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/Logo.jpg') }}" alt="Logo">
+      <span>TCC Asmatic</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="/">Painel</a></li>
+      <li><a href="/sensores">Sensores</a></li>
+      <li><a href="/insights" class="active">Insights</a></li>
+      <li><a href="/chat">Assistente IA</a></li>
+      <li><a href="/configuracoes">Configurações</a></li>
+    </ul>
+  </nav>
+
+  <main id="root">
+    <div class="main-content">
+      <h2 class="section-title">Análise Detalhada da Saúde Respiratória</h2>
+      <p class="subtitle">Resultados calculados a partir dos dados brutos dos sensores.</p>
+
+      <section id="analysisResults" class="results-grid">
+        </section>
+
+      <section id="perfAnalysis" class="perf-analysis-section">
+          <h3>Análise de Pico de Fluxo Expiratório (PEFR)</h3>
+          <div class="perf-gauge">
+              <div class="perf-gauge-bar">
+                  <div class="zone risk">Risco (&lt;50%)</div>
+                  <div class="zone moderate">Atenção (50-80%)</div>
+                  <div class="zone safe">Seguro (&gt;80%)</div>
+              </div>
+              <div id="perfIndicator" class="perf-indicator" style="left: 0%;">
+                   <span id="perfPercentage">--%</span>
+              </div>
+          </div>
+          <div class="perf-details">
+              <div>Usuário: <span id="username" style="font-weight: bold;">{{ nome_usuario }}</span> </div>
+              <div>Previsão: <span id="perfPredicted">--</span> L/min</div>
+              <div>Calculada: <span id="perfReference">--</span> L/min</div>
+              <div class="perf-zone-text">Zona: <span id="perfZoneText" class="zone-label">--</span></div>
+          </div>
+      </section>
+
+      <section class="triggers">
+        <h3>Gatilhos no Momento</h3>
+        <ul id="currentTriggers">
+          </ul>
+
+      <h3>Gráficos da Análise de Sinais</h3>
+        <div class="insights-container charts-grid">
+            <div class="card">
+                <h3>Sinal PPG e Batimentos Cardíacos</h3>
+                <canvas id="ppgChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Sinal Respiratório</h3>
+                <canvas id="respirationChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Análise de Som (Microfone)</h3>
+                <canvas id="soundChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Análise de Movimento (Acelerômetro)</h3>
+                <canvas id="motionChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Tosse por Dia da Semana</h3>
+                <canvas id="weeklyCoughChart"></canvas>
+            </div>
+            <div class="card">
+                <h3>Sinal Piezoelétrico (Movimento Torácico)</h3>
+                <canvas id="piezoChart"></canvas>
+            </div>
+
+        </div>
+      </section>
+
+      <section class="minigame">
+        <h3>Exercícios de Respiração - Box Breathing</h3>
+        <div class="breathing-container">
+          <div id="breathingCircle">
+            <svg width="150" height="150"><circle class="circle-bg" cx="75" cy="75" r="65"></circle><circle class="circle-progress" cx="75" cy="75" r="65"></circle></svg>
+            <div id="breathingText">Pronto?</div>
+          </div>
+          <button id="startGameBtn">Iniciar Exercício</button>
+          <div id="downloadContainer"></div>  
+          <div id="predictionResult" style="display: none; margin-top: 20px;"></div>
+        </div>
+      </section>
+
+      <section class="calendar">
+        <h3>Registro de Uso da Bombinha</h3>
+        <div id='inhalerCalendar'></div>
+      </section>
+    </div>
+  </main>
+
+  <script type="text/javascript">
+    window.env_data = {{ env_data | tojson | safe }};
+    window.usage_events = {{ usage_events | tojson | safe }};
+  </script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const pefrData = window.env_data && window.env_data.pefr_prediction;
+        const perfSection = document.getElementById('perfAnalysis');
+
+        if (perfSection && pefrData && !pefrData.error) {
+            // Atualiza os valores de texto
+            document.getElementById('perfPredicted').textContent = pefrData.predicted_pefr;
+            document.getElementById('perfReference').textContent = pefrData.reference_pefr;
+            document.getElementById('perfPercentage').textContent = pefrData.percentage.toFixed(1) + '%';
+            
+            const zoneTextElement = document.getElementById('perfZoneText');
+            zoneTextElement.textContent = pefrData.zone;
+
+            // Move o indicador para a posição correta na barra
+            const indicator = document.getElementById('perfIndicator');
+            // Limita o valor em 100% para não ultrapassar a barra visualmente
+            const positionPercentage = Math.min(pefrData.percentage, 100);
+            indicator.style.left = positionPercentage + '%';
+
+            // Adiciona a classe de cor correspondente à zona
+            const zoneClass = pefrData.zone.toLowerCase();
+            zoneTextElement.className = 'zone-label ' + zoneClass;
+
+        } else if (perfSection) {
+            // Caso não haja dados de PERF, exibe uma mensagem
+            perfSection.innerHTML = '<h3>Análise de Pico de Fluxo Expiratório (PERF)</h3><p>Dados de PERF indisponíveis no momento.</p>';
+        }
+    });
+  </script>
+
+  <script src="{{ url_for('static', filename='js/insights.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+</body>
+</html>

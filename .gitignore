@@ -1,0 +1,12 @@
+# Ambiente Virtual
+venv/
+
+# Cache do Python
+__pycache__/
+*.pyc
+
+# Arquivos gerados e modelos
+uploads/
+
+# Arquivos de ambiente (se você usar)
+.env

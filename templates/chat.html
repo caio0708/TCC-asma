@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Assistente IA</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/chat.css') }}">
+
+</head>
+<body>
+  <!-- Barra de Navegação -->
+  <nav class="navbar">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/Logo.jpg') }}" alt="Logo" width="40" height="40">
+      <span>TCC Asmatic</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="/">Painel</a></li>
+      <li><a href="/sensores">Sensores</a></li>
+      <li><a href="/chat" class="active">Assistente IA</a></li>
+      <li><a href="/insights">Insights</a></li>
+      <li><a href="/configuracoes">Configurações</a></li>
+    </ul>
+  </nav>
+
+  <!-- Conteúdo Principal -->
+  <div id="root">
+    <div class="page-container">
+      <!-- Área de Sensores à Esquerda -->
+      <div class="left-sensors">
+        <h3>Sensores Ao Vivo</h3>
+        <div class="sensor-card" id="sensor-1">
+          <div class="icon-bubble">❤️</div>
+          <div>
+            <span class="sensor-title">Batimentos Cardíacos</span>
+            <span class="sensor-value">-- bpm</span>
+          </div>
+        </div>
+        <div class="sensor-card" id="sensor-2">
+          <div class="icon-bubble">💨</div>
+          <div>
+            <span class="sensor-title">Saturação de Oxigênio</span>
+            <span class="sensor-value">-- %</span>
+          </div>
+        </div>
+        <div class="sensor-card" id="sensor-3">
+          <div class="icon-bubble">💧</div>
+          <div>
+            <span class="sensor-title">Umidade</span>
+            <span class="sensor-value">--/-- mmHg</span>
+          </div>
+        </div>
+        <div class="sensor-card" id="sensor-4">
+          <div class="icon-bubble">🌡️</div>
+          <div>
+            <span class="sensor-title">Temperatura Corporal</span>
+            <span class="sensor-value">-- °C</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Área Principal -->
+      <div class="main-content">
+        <h1 class="section-title">Assistente IA</h1>
+        <p class="subtitle">
+          Obtenha suporte personalizado e respostas sobre saúde respiratória da nossa IA especializada.
+        </p>
+        <!-- Área de Chat -->
+        <div class="chat-container" id="chat-container">
+          <!-- As mensagens serão adicionadas aqui dinamicamente -->
+        </div>
+        <!-- Área de Input -->
+        <div class="input-area">
+          <div class="quick-questions" id="quick-questions">
+            <!-- Os botões serão inseridos dinamicamente no chat.js -->
+          </div>
+            <div class="chat-input">
+                <input type="text" id="pergunta-input" placeholder="Digite sua pergunta..." onkeypress="if(event.key === 'Enter') document.querySelector('.chat-input button').click()">
+                
+                <button 
+                    class="pulse-animation" 
+                    onclick="enviarPergunta(document.getElementById('pergunta-input').value)" 
+                    aria-label="Enviar mensagem">
+                    
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M3.478 2.405a.75.75 0 0 0-.926.94l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.405Z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+      </div>
+
+      <!-- Barra Lateral Direita -->
+      <div class="sidebar">
+
+        <!-- Sugestões Inteligentes -->
+        <div class="suggestions">
+          <h3 class="section-title">Sugestões Inteligentes</h3>
+          <div id="sugestoes-inteligentes" role="region" aria-live="polite">
+            
+            <div class="insight-card warning staggered-item" id="qualidade-ar-card">
+              <div class="icon-bubble">📊</div>
+              <div>
+                <strong>Alerta de Qualidade do Ar</strong>
+                <p data-status="loading">Carregando dados...</p>
+              </div>
+            </div>
+            <div class="insight-card positive staggered-item" id="umidade-card">
+              <div class="icon-bubble">💧</div>
+              <div>
+                <strong>Gerenciamento de Umidade</strong>
+                <p data-status="loading">Carregando dados...</p>
+              </div>
+            </div>
+            <div class="insight-card alert staggered-item" id="clima-card">
+              <div class="icon-bubble">🌡️</div>
+              <div>
+                <strong>Mudança de Clima</strong>
+                <p data-status="loading">Carregando dados...</p>
+              </div>
+            </div>
+            
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Script -->
+  <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+
+</body>
+</html>

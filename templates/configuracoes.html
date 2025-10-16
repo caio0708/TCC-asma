@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configurações</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* FONTES E CORES */
+    :root {
+      --primary-color: #0EA5E9;
+      --primary-gradient: linear-gradient(135deg, #0EA5E9);
+      --danger-color: #d92550;
+      --background-color: #f0f2f5;
+      --card-background: #ffffff;
+      --text-color: #333;
+      --light-text-color: #6c757d;
+      --input-background: #e9ecef;
+    }
+
+    /* LAYOUT GERAL */
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: var(--background-color);
+      color: var(--text-color);
+    }
+
+    main {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start; /* Alinha no topo */
+      min-height: calc(100vh - 60px);
+      padding: 40px 20px;
+    }
+
+    /* CARD PRINCIPAL */
+    .user-card {
+      background: var(--card-background);
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      max-width: 450px;
+      width: 100%;
+      overflow: hidden; /* Garante que o header não vaze */
+    }
+    
+    .card-header {
+        background: var(--primary-gradient);
+        padding: 20px 30px;
+        color: white;
+    }
+    
+    .card-header h2 {
+        margin: 0;
+        font-size: 1.5rem;
+        text-align: center;
+    }
+
+    .card-body {
+        padding: 30px;
+    }
+    
+    /* FORMULÁRIO */
+    .field {
+      margin-bottom: 20px;
+    }
+    
+    .field label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--light-text-color);
+    }
+    
+    .field input,
+    .field select {
+      width: 100%;
+      padding: 12px 15px;
+      font-size: 1rem;
+      border: none;
+      background-color: var(--input-background);
+      border-radius: 8px;
+      transition: box-shadow 0.2s ease;
+      box-sizing: border-box; /* Garante que padding não afete a largura */
+    }
+    
+    .field input:focus,
+    .field select:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgb(14,165,233);
+    }
+
+    /* BOTÕES DE AÇÃO */
+    .actions {
+      display: flex;
+      gap: 15px; /* Espaçamento entre botões */
+      margin-top: 25px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px 15px;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+    
+    .btn-primary {
+      background: var(--primary-gradient);
+      color: white;
+    }
+
+    /* NOVO ESTILO PARA O BOTÃO SAIR */
+    .btn-logout {
+      background-color: #ff5c6a; /* Fundo vermelho bem claro */
+      color: #ffffff;           /* Texto vermelho escuro para contraste */
+    }
+
+    .btn-logout:hover {
+      background-color: #ff2137; /* Cor um pouco mais forte ao passar o mouse */
+      color: #ffffff;
+    }
+        
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    
+    /* SEPARADOR */
+    .separator {
+        border: none;
+        height: 1px;
+        background-color: #e0e0e0;
+        margin: 30px 0;
+    }
+    
+    /* SEÇÃO DE CRISE */
+    .crisis-section {
+        text-align: center;
+    }
+    
+    .crisis-section h3 {
+        margin-top: 0;
+        margin-bottom: 8px;
+        font-size: 1.2rem;
+    }
+    
+    .crisis-section p {
+        margin-top: 0;
+        color: var(--light-text-color);
+        margin-bottom: 20px;
+    }
+    
+    .btn-crisis {
+        width: 100%;
+        background-color: var(--danger-color);
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+        animation: pulse-shadow 2s infinite;
+    }
+    
+    .btn-crisis:hover {
+        background-color: #b81c42;
+    }
+
+    @keyframes pulse-shadow {
+        0% { box-shadow: 0 0 0 0 rgba(217, 37, 80, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(217, 37, 80, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(217, 37, 80, 0); }
+    }
+
+    /* AJUSTES PARA TELAS PEQUENAS */
+    @media (max-width: 500px) {
+      main {
+        padding: 20px 15px;
+      }
+      .card-header { padding: 15px 20px; }
+      .card-body { padding: 20px; }
+      .actions { flex-direction: column; }
+    }
+
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/Logo.jpg') }}" alt="Logo" width="40" height="40">
+      <span>TCC Asmatic</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="/">Painel</a></li>
+      <li><a href="/sensores">Sensores</a></li>
+      <li><a href="/configuracoes" class="active">Configurações</a></li>
+      <li><a href="/insights">Insights</a></li>
+      <li><a href="/chat">Assistente IA</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <div class="user-card">
+      <div class="card-header">
+          <h2>Configurações de Perfil</h2>
+      </div>
+
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('configuracoes.configuracoes') }}">
+          <div class="field">
+            <label for="username">Nome</label>
+            <input type="text" id="username" name="username" placeholder="Seu nome" value="{{ session.get('username', '') }}" required />
+          </div>
+
+          <div class="field">
+            <label for="age">Idade</label>
+            <input type="number" id="age" name="age" placeholder="Sua idade" min="1" value="{{ session.get('age', '') }}" required />
+          </div>
+
+          <div class="field">
+            <label for="altura">Altura (cm)</label>
+            <input type="number" id="altura" name="altura" placeholder="Sua altura em cm" min="1" value="{{ session.get('altura', '') }}" required />
+          </div>
+
+          <div class="field">
+            <label for="gender">Gênero</label>
+            <select id="gender" name="gender" required>
+              <option value="" disabled {% if not session.get('gender') %}selected{% endif %}>Selecione</option>
+              <option value="Masculino" {% if session.get('gender') == "Masculino" %}selected{% endif %}>Masculino</option>
+              <option value="Feminino" {% if session.get('gender') == "Feminino" %}selected{% endif %}>Feminino</option>
+              <option value="Outro" {% if session.get('gender') == "Outro" %}selected{% endif %}>Outro</option>
+            </select>
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+            {% if session.get('username') %}
+              <a href="{{ url_for('configuracoes.logout') }}" class="btn btn-logout">Sair</a>
+            {% endif %}
+          </div>
+        </form>
+
+        <hr class="separator">
+
+        <div class="crisis-section">
+          <h3>Registro de Eventos</h3>
+          <p>Pressione o botão abaixo em caso de crise.</p>
+          <form action="{{ url_for('configuracoes.registrar_crise') }}" method="post">
+            <button type="submit" class="btn btn-crisis">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
+                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+              </svg>
+              <span>Registrar Crise Agora</span>
+            </button>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</body>
+</html>
