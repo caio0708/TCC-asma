@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Registrar Sintomas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  <style>
+    /* Main container */
+    .container {
+      max-width: 800px;
+      margin: 2rem auto;
+      background: white;
+      padding: 2rem;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+    }
+
+    .form-title {
+      margin-bottom: 1.5rem;
+      font-size: 2rem;
+      text-align: center;
+      color: var(--primary-color);
+    }
+
+    .form-group {
+      margin-bottom: var(--spacing);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 2rem;
+      font-weight: 600;
+    }
+
+    input[type="checkbox"] {
+      accent-color: var(--primary-color);
+      margin-right: 0.5rem;
+    }
+
+    /* Grid for symptom checkboxes */
+    .symptom-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: var(--spacing);
+      margin-bottom: var(--spacing);
+    }
+
+    input[type="date"],
+    input[type="time"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 1rem;
+    }
+
+    textarea {
+      resize: vertical;
+    }
+
+
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      background-color: #0056b3;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    .btn:hover {
+      background-color: #0056b3;
+    }
+  </style>
+  
+</head>
+<body>
+
+<!-- Barra de Navegação -->
+<nav class="navbar">
+  <div class="logo">
+    <img src="{{ url_for('static', filename='img/Logo.jpg') }}" alt="Logo">
+    <span>TCC Asmatic</span>
+  </div>
+  <ul class="nav-links">
+    <li><a href="/insights">Insights</a></li>
+    <li><a href="/sensores">Sensores</a></li>
+    <li><a href="/" class="active">Painel</a></li>
+    <li><a href="/chat">Assistente IA</a></li>
+    <li><a href="/configuracoes">Configurações</a></li>
+  </ul>
+</nav>
+
+<!-- Conteúdo Principal -->
+<main class="container">
+  <h1 class="form-title">Registrar Sintomas Respiratórios</h1>
+
+  <form action="/salvar_sintomas" method="POST">
+
+    <div class="form-group">
+      <label>Selecione os sintomas presentes:</label>
+      <div class="symptom-grid">
+        <!-- Cada sintoma em card simples -->
+
+
+        <!-- CAMPOS NUMÉRICOS (INTEIROS) -->
+        <div class="form-grid">
+            <label for="Number_of_ER_Visits">Número de Visitas à Emergência</label>
+            <input type="number" id="Number_of_ER_Visits" name="Number_of_ER_Visits" min="0" step="1" required>
+        </div>
+
+        <!-- CAMPOS NUMÉRICOS (DECIMAIS/FLOATS) -->
+        <div class="form-grid">
+            <label for="BMI">IMC (BMI)</label>
+            <input type="number" id="BMI" name="BMI" step="0.1" min="15" max="45" required>
+        </div>
+        <div class="form-grid">
+            <label for="Medication_Adherence">Adesão à Medicação (0.0 a 1.0)</label>
+            <input type="number" id="Medication_Adherence" name="Medication_Adherence" step="0.1" min="0" max="1.0" required>
+        </div>
+        <div class="form-grid">
+            <label for="Peak_Expiratory_Flow">Pico de Fluxo Expiratório</label>
+            <input type="number" id="Peak_Expiratory_Flow" name="Peak_Expiratory_Flow" step="0.1" min="150" max="600" required>
+        </div>
+        <div class="form-grid">
+            <label for="FeNO_Level">Nível de FeNO</label>
+            <input type="number" id="FeNO_Level" name="FeNO_Level" step="0.1" min="5" max="64" required>
+        </div>
+
+        <!-- CAMPOS BINÁRIOS (SIM/NÃO) -->
+        <div class="form-grid">
+            <input type="hidden" name="Family_History" value="0">
+            <input type="checkbox" id="Family_History" name="Family_History" value="1">
+            <label for="Family_History" style="display: inline;">Possui Histórico Familiar?</label>
+        </div>
+
+        <!-- CAMPOS CATEGÓRICOS (ESCOLHA ÚNICA) -->
+        <div class="form-grid">
+            <label for="Smoking_Status">Status de Tabagismo</label>
+            <select id="Smoking_Status" name="Smoking_Status" required>
+                <option value="Current">Fumante Atual</option>
+                <option value="Former">Ex-Fumante</option>
+                <option value="Never">Nunca Fumou</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Allergies">Alergias</label>
+            <select id="Allergies" name="Allergies" required>
+                <option value="None">Nenhuma</option>
+                <option value="Dust">Poeira</option>
+                <option value="Pets">Animais de Estimação</option>
+                <option value="Pollen">Pólen</option>
+                <option value="Multiple">Múltiplas</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Air_Pollution_Level">Nível de Poluição do Ar</label>
+            <select id="Air_Pollution_Level" name="Air_Pollution_Level" required>
+                <option value="High">Alto</option>
+                <option value="Moderate">Moderado</option>
+                <option value="Low">Baixo</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Physical_Activity_Level">Nível de Atividade Física</label>
+            <select id="Physical_Activity_Level" name="Physical_Activity_Level" required>
+                <option value="Sedentary">Sedentário</option>
+                <option value="Moderate">Moderado</option>
+                <option value="Active">Ativo</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Occupation_Type">Tipo de Ocupação</label>
+            <select id="Occupation_Type" name="Occupation_Type" required>
+                <option value="Indoor">Interna (Indoor)</option>
+                <option value="Outdoor">Externa (Outdoor)</option>
+            </select>
+        </div>
+        <div class="form-grid">
+            <label for="Comorbidities">Comorbidades</label>
+            <select id="Comorbidities" name="Comorbidities" required>
+                <option value="None">Nenhuma</option>
+                <option value="Diabetes">Diabetes</option>
+                <option value="Hypertension">Hipertensão</option>
+                <option value="Both">Ambas</option>
+            </select>
+        </div>
+
+
+
+
+      </div>
+    </div>
+
+    <div class="form-group">
+      <button type="submit" class="btn">Enviar</button>
+    </div>
+
+  </form>
+
+
+</main>
+
+<script>
+  document.querySelector('form').addEventListener('submit', function(event) {
+      var now = new Date();
+      
+      // Formatar a data como YYYY-MM-DD
+      var year = now.getFullYear();
+      var month = String(now.getMonth() + 1).padStart(2, '0'); // Meses são de 0 a 11
+      var day = String(now.getDate()).padStart(2, '0');
+      var formattedDate = `${year}-${month}-${day}`;
+      
+      // Formatar a hora como HH:MM
+      var hours = String(now.getHours()).padStart(2, '0');
+      var minutes = String(now.getMinutes()).padStart(2, '0');
+      var formattedTime = `${hours}:${minutes}`;
+      
+      // Preencher os campos de data e hora
+      document.getElementById('data').value = formattedDate;
+      document.getElementById('hora').value = formattedTime;
+  });
+</script>
+
+</body>
+</html>

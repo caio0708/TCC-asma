@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Painel Asmático</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+  <style>
+    /* ================================================================= */
+    /* SEÇÃO DOS CARDS DE RESUMO (NOVO DESIGN MODERNO)                   */
+    /* ================================================================= */
+    /* Container principal dos cards */
+    .daily-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Layout responsivo */
+      gap: 1.5rem; /* Espaçamento entre os cards */
+      margin-top: 1.5rem;
+    }
+
+    /* Estilo individual de cada card */
+    .card {
+      background: #ffffff;
+      border-radius: 16px; /* Bordas mais arredondadas */
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border: 1px solid #eef2f7; /* Borda sutil */
+      box-shadow: 0 8px 24px rgba(0, 48, 114, 0.05); /* Sombra suave para elevação */
+      transition: all 0.3s ease;
+      min-height: 160px; /* Altura mínima para consistência */
+    }
+
+    .card:hover {
+      transform: translateY(-5px); /* Efeito de elevação no hover */
+      box-shadow: 0 12px 28px rgba(0, 48, 114, 0.1);
+      border-color: #dbe6fd;
+    }
+
+    /* Cabeçalho do card (Ícone e Título) */
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      color: #5a677d; /* Cor mais suave para o texto */
+    }
+
+    .card-header .icon {
+      font-size: 1.5rem; /* Tamanho do ícone */
+      color: #4a80e3;   /* Cor principal para os ícones 4a80e3 */
+    }
+
+    .card-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    /* Valor principal do card */
+    .card-value {
+      display: flex;
+      align-items: baseline; /* Alinha o número e a unidade */
+      margin: 0.5rem 0;
+      color: #0e1522; /* Cor escura e forte para o valor */
+    }
+
+    /* Estilo para o número principal */
+    .card-value .value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      line-height: 1.2;
+      color: #1E408A; /* Cor mais suave */
+    }
+
+    /* Estilo para a unidade (ex: °C, %) */
+    .card-value .unit {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-left: 0.25rem;
+      color: #5a677d; /* Cor mais suave */
+    }
+
+    /* Informação de atualização */
+    .card-updated {
+      font-size: 0.8rem;
+      color: #8a96aa; /* Cor bem sutil */
+      margin-top: auto; /* Empurra para o final do card */
+      padding-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/Logo.jpg') }}" alt="Logo">
+      <span>TCC Asmatic</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="/insights">Insights</a></li>
+      <li><a href="/sensores">Sensores</a></li>
+      <li><a href="/" class="active">Painel</a></li>
+      <li><a href="/chat">Assistente IA</a></li>
+      <li><a href="/configuracoes">Configurações</a></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <div class="header">
+      <div class="header-left">
+        <h1>Painel de Saúde</h1>
+        <p>Sua saúde respiratória em um relance</p>
+      </div>
+      <div class="header-right">
+        <button onclick="window.location.href='/questionario'">Registrar Sintomas</button>
+      </div>
+    </div>
+
+    <div class="daily-summary">
+      {# 
+        Mapeia o título para o ID do sensor e para a classe do ícone (ex: Font Awesome).
+        Você pode encontrar mais ícones em fontawesome.com
+      #}
+      {% set card_data = {
+        "Temperatura Corporal": {"id": "temperatura-corporal", "icon": "fas fa-thermometer-half"},
+        "Temperatura Ambiente": {"id": "temperatura-ambiente", "icon": "fas fa-cloud-sun"},
+        "Umidade": {"id": "umidade", "icon": "fas fa-tint"},
+        "Saturação O₂": {"id": "saturacao", "icon": "fas fa-lungs"},
+        "Tosse (dia)": {"id": "contagem-tosse", "icon": "fas fa-head-side-cough"}
+      } %}
+
+      {% for item in daily_summary %}
+        {% set data = card_data[item.title] %}
+        {% if data %}
+          <div class="card" id="card-{{ data.id }}">
+            
+            <div class="card-header">
+              <i class="icon {{ data.icon }}"></i>
+              <div class="card-title">{{ item.title }}</div>
+            </div>
+            
+            <div class="card-value">
+              <span id="valor-{{ data.id }}" class="value">{{ item.value }}</span>
+              <span class="unit">{{ item.unit }}</span>
+            </div>
+
+            <div class="card-updated" id="status-{{ data.id }}">Carregando...</div>
+
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <h2 class="section-title" style="margin-top: 2rem;">Monitoramento e Previsão</h2>
+    <div class="content-row">
+      <div class="graphs-section">
+        <div class="graph-tabs">
+          <button class="graph-tab-btn" data-target="airQualityChart">Qualidade do Ar</button>
+          <button class="graph-tab-btn active" data-target="historicalDataChart">Monitoramento Histórico</button>
+          <button class="graph-tab-btn" data-target="crisisPredictionChart">Previsão de Crise</button>
+        </div>
+        <div class="graph-container">
+          <canvas id="airQualityChart" class="graph-canvas"></canvas>
+          <canvas id="historicalDataChart" class="graph-canvas active"></canvas>
+          <canvas id="crisisPredictionChart" class="graph-canvas"></canvas>
+        </div>
+      </div>
+      
+      <div class="dashboard-container" style="display: flex; gap: 2rem; flex-wrap: wrap;">
+        <div class="flip-card">
+          <div class="flip-card-inner" onclick="this.classList.toggle('flipped')">
+            <div class="flip-card-front">
+              <h3>Informações Ambientais</h3>
+              <div class="info-box">
+                <strong>Qualidade do Ar</strong><br>
+                Consulte os <a href="https://cetesb.sp.gov.br/ar/padroes-de-qualidade-do-ar/" target="_blank">padrões da CETESB</a>.
+                <span class="tag info">Informativo</span>
+              </div>
+              <div class="info-box">
+                <strong>Umidade Relativa</strong><br>
+                Ideal entre <strong>40% e 60%</strong> para quem tem asma.
+                <span class="tag recommended">Recomendado</span>
+              </div>
+            </div>
+            <div class="flip-card-back">
+              <h3>Entendendo os Indicadores</h3>
+              <div class="info-box">
+                <strong>AQI (Air Quality Index)</strong><br>
+                Índice geral da qualidade do ar. Quanto maior, pior o ar [1 - 5].
+                <span class="tag global">Índice Global</span>
+              </div>
+              <div class="info-box alert">
+                <strong>PM2.5</strong><br>
+                Partículas finas que penetram profundamente nos pulmões.
+                <span class="tag alert">Alerta</span>
+              </div>
+              <div class="info-box moderate">
+                <strong>PM10</strong><br>
+                Partículas maiores, afetam o trato respiratório superior.
+                <span class="tag moderate">Moderado</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+        const airLabels = {{ air_quality["labels"] | tojson }};
+        const airData = {{ air_quality["values"] | tojson }};
+        const historicalLabels = {{ historical_chart_data["labels"] | tojson }};
+        const bodyTempData = {{ historical_chart_data["body_temp"] | tojson }};
+        const ambientTempData = {{ historical_chart_data["ambient_temp"] | tojson }};
+        const humidityData = {{ historical_chart_data["humidity"] | tojson }};
+        const spo2Data = {{ historical_chart_data["spo2"] | tojson }};
+        const crisesPrediction = {{ crisesPrediction | tojson }};
+        const username = {{ username | tojson }};
+        const accuracy = {{ accuracy | tojson }};
+        const hora = {{ hora | tojson }};
+    </script>
+  
+  <script src="{{ url_for('static', filename='js/painel.js') }}"></script>
+</body>
+</html>

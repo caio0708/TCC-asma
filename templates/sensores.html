@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/sensores.css') }}">
+  <title>Sensores</title>
+
+  <!-- Tabler Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+</head>
+<body>
+  <nav class="navbar" role="navigation" aria-label="Principal">
+    <div class="logo">
+      <img src="{{ url_for('static', filename='img/Logo.jpg') }}" alt="Logo" width="40" height="40">
+      <span>TCC Asmatic</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="/chat">Assistente IA</a></li>
+      <li><a href="/">Painel</a></li>
+      <li><a class="active" href="/sensores">Sensores</a></li>
+      <li><a href="/insights">Insights</a></li>
+      <li><a href="/configuracoes">Configurações</a></li>
+    </ul>
+  </nav>
+
+  <main>
+
+    <div class="sensor-page">
+      <div class="sensor-cards-container">
+
+<div class="card" data-id="batimentos-cardiacos">
+  <div class="icon-bubble" aria-label="Batimentos"><i class="ti ti-heart"></i></div>
+  <div class="card-title">Batimentos Cardíacos</div>
+  <p>Sensor de pulso óptico (PPG)</p>
+  <div class="card-value">-- <span>bpm</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="saturacao">
+  <div class="icon-bubble" aria-label="Saturação"><i class="ti ti-lungs"></i></div>
+  <div class="card-title">Saturação de Oxigênio (SpO₂)</div>
+  <p>Oxímetro de dedo</p>
+  <div class="card-value">-- <span>%</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="temperatura-corporal">
+  <div class="icon-bubble" aria-label="Temperatura corporal"><i class="ti ti-thermometer"></i></div>
+  <div class="card-title">Temperatura Corporal</div>
+  <p>Sensor DS18B20</p>
+  <div class="card-value">-- <span>°C</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="temperatura-ambiente">
+  <div class="icon-bubble" aria-label="Temperatura ambiente"><i class="ti ti-temperature"></i></div>
+  <div class="card-title">Temperatura Ambiente</div>
+  <p>Sensor MPU-6050 - Acelerômetro</p>
+  <div class="card-value">-- <span>°C</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="temperatura-oximetro">
+  <div class="icon-bubble" aria-label="Temperatura oxímetro"><i class="ti ti-hand-finger"></i></div>
+  <div class="card-title">Temperatura Oxímetro</div>
+  <p>Sensor MAX30105 - Oxímetro</p>
+  <div class="card-value">-- <span>°C</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="qualidade-ar-aqi">
+  <div class="icon-bubble" aria-label="Qualidade do ar"><i class="ti ti-gauge"></i></div>
+  <div class="card-title">Índice de Qualidade do Ar</div>
+  <p>AQI</p>
+  <div class="card-value">-- <span>AQI</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="qualidade-ar-pm25">
+  <div class="icon-bubble" aria-label="PM2.5"><i class="ti ti-grain"></i></div>
+  <div class="card-title">Qualidade do Ar</div>
+  <p>Sensor de partículas finas (PM2.5)</p>
+  <div class="card-value">-- <span>PM2.5</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="qualidade-ar-pm10">
+  <div class="icon-bubble" aria-label="PM10"><i class="fas fa-smog"></i></div>
+  <div class="card-title">Qualidade do Ar</div>
+  <p>Sensor de partículas inaláveis grossas (PM10)</p>
+  <div class="card-value">-- <span>PM10</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="qualidade-ar-o3">
+  <div class="icon-bubble" aria-label="Ozônio"><i class="ti ti-flask"></i></div>
+  <div class="card-title">Ozônio (O₃)</div>
+  <p>Irrita as vias aéreas, piora a função pulmonar e aumenta hospitalizações por asma, especialmente em dias quentes/ensolarados.</p>
+  <div class="card-value">-- <span>O₃</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="qualidade-ar-no2">
+  <div class="icon-bubble" aria-label="NO2"><i class="ti ti-car"></i></div>
+  <div class="card-title">Dióxido de Nitrogênio (NO₂)</div>
+  <p>Associado a crises de asma, especialmente em áreas urbanas com tráfego intenso. Afeta principalmente crianças e pessoas com asma moderada a grave.</p>
+  <div class="card-value">-- <span>NO₂</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="qualidade-ar-so2">
+  <div class="icon-bubble" aria-label="SO2"><i class="fas fa-industry"></i></div>
+  <div class="card-title">Dióxido de Enxofre (SO₂)</div>
+  <p>Provoca broncoconstrição imediata, principalmente em asmáticos sensíveis.</p>
+  <div class="card-value">-- <span>SO₂</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="piezo">
+  <div class="icon-bubble" aria-label="Movimento torácico"><i class="ti ti-activity"></i></div>
+  <div class="card-title">Movimento Torácico</div>
+  <p>Sensor piezoelétrico</p>
+  <div class="card-value">-- <span>nível</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="contagem-tosse">
+  <div class="icon-bubble" aria-label="Contagem de tosse"><i class="fas fa-head-side-cough"></i></div>
+  <div class="card-title">Contagem Tosse</div>
+  <p>N° Tosses</p>
+  <div class="card-value">-- <span>nível</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="som">
+  <div class="icon-bubble" aria-label="Som"><i class="ti ti-microphone"></i></div>
+  <div class="card-title">Som</div>
+  <p>Sensor MAX9814</p>
+  <div class="card-value">-- <span>nível</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+<div class="card" data-id="umidade">
+  <div class="icon-bubble" aria-label="Umidade"><i class="ti ti-droplet"></i></div>
+  <div class="card-title">Umidade do Ar</div>
+  <p>Sensor de umidade do ar</p>
+  <div class="card-value">-- <span>%</span></div>
+  <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+</div>
+
+        <div class="card" data-id="acelerometro-x">
+          <div class="icon-bubble" aria-label="Acelerômetro"><i class="ti ti-axis-x"></i></div>
+          <div class="card-info">
+            <div class="card-title">Acelerômetro</div>
+            <p>Medição de movimento do corpo.</p>
+          </div>
+          <div class="card-value multi-value">
+          <div data-id="acelerometro-x"><span>X: </span> -- <span>m/s²</span></div>
+          <div data-id="acelerometro-y"><span>Y: </span> -- <span>m/s²</span></div>
+          <div data-id="acelerometro-z"><span>Z: </span> -- <span>m/s²</span></div>            
+          </div>
+          <div class="card-updated"><i class="ti ti-refresh"></i> Atualizado: --:--</div>
+        </div>
+
+      <div class="card" data-id="giroscopio-x">
+        <div class="icon-bubble" aria-label="Acelerômetro"><i class="ti ti-arrow-forward"></i></div>
+        <div class="card-info">
+          <div class="card-title">Giroscópio</div>
+          <p>Rotação nos eixos X, Y e Z</p>
+        </div>
+        <div class="card-value multi-value">
+          <div data-id="giroscopio-x"><span>X: </span> -- <span>m/s²</span></div>
+          <div data-id="giroscopio-y"><span>Y: </span> -- <span>m/s²</span></div>
+          <div data-id="giroscopio-z"><span>Z: </span> -- <span>m/s²</span></div>
+        </div>
+        <div class="card-updated">Atualizado: --:--</div>
+      </div>        
+
+      </div>
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/sensores.js') }}"></script>
+</body>
+</html>
+

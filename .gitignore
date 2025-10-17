@@ -1,0 +1,18 @@
+# Ambiente Virtual
+venv/
+.venv/
+
+# Pastas de compilação do PyInstaller
+build/
+dist/
+*.spec
+
+# Arquivos de cache do Python
+__pycache__/
+*.pyc
+
+# Arquivos de ambiente (contêm senhas e chaves)
+.env
+
+# Arquivos gerados e modelos
+uploads/

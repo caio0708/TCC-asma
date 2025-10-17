@@ -1,0 +1,490 @@
+/* Importação da Fonte Inter */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Variáveis Globais */
+:root {
+  --primary-color: #0EA5E9;
+  --secondary-color: #1e408a;
+  --accent-color: #7DD3FC;
+  --light-blue: #BFDBFE;
+  --background-light: #F5F7FA;
+  --card-background: #F0F9FF;
+  --white: #ffffff;
+  --text-dark: #0C4A6E;
+  --text-gray: #666;
+  --text-light-gray: #999;
+  --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --border-radius: 12px;
+  --border-radius-sm: 10px;
+  --border-radius-round: 20px;
+  --transition: all 0.3s ease;
+
+}
+
+/* Reset e Estilos Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Inter', sans-serif;
+}
+
+body {
+  background-color: var(--background-light);
+  color: #333;
+}
+
+/* Layout Principal */
+#root,
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Barra de Navegação */
+.navbar {
+  position: relative; /* Necessário para posicionar os links absolutamente */
+  display: flex;
+  align-items: center;
+  background-color: var(--secondary-color);
+  padding: 10px 20px;
+  color: var(--white);
+}
+
+.navbar .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.navbar .logo img {
+  width: 30px;
+  height: auto;
+}
+
+.nav-links {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  list-style: none;
+}
+
+.nav-links li a {
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.nav-links li a.active,
+.nav-links li a:hover {
+  color: var(--accent-color);
+}
+
+/* Container Flexível */
+.page-container {
+  display: flex;
+  gap: 20px;
+}
+
+/* Área de Sensores (Esquerda) */
+.left-sensors {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  background-color: var(--white);
+  padding: 20px;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  align-self: flex-start;
+}
+
+.left-sensors h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 15px;
+}
+
+.sensor-card {
+  display: flex;
+  align-items: center;
+  background-color: var(--card-background);
+  padding: 15px;
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--shadow-sm);
+  height: 80px;
+  border-left: 4px solid transparent;
+  transition: transform 0.2s ease;
+}
+
+.sensor-card:hover {
+  transform: translateY(-2px);
+}
+
+.sensor-card .icon-bubble {
+  width: 40px;
+  height: 40px;
+  background-color: var(--light-blue);
+  color: var(--primary-color);
+  font-size: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+}
+
+.sensor-card div {
+  display: flex;
+  flex-direction: column;
+  margin-left: 10px;
+}
+
+.sensor-title {
+  font-size: 14px;
+  color: var(--text-dark);
+  font-weight: 500;
+}
+
+.sensor-value {
+  font-size: 16px;
+  color: var(--secondary-color);
+  font-weight: 600;
+}
+
+/* Área Principal */
+.main-content {
+  flex: 7;
+  display: flex;
+  flex-direction: column;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 10px;
+  position: relative;
+  display: inline-block;
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  width: 60%;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  bottom: -5px;
+  left: 20%;
+  border-radius: 2px;
+}
+
+.subtitle {
+  color: var(--text-gray);
+  font-size: 14px;
+  font-weight: 400;
+  margin-bottom: 20px;
+}
+
+/* Área de Chat */
+.chat-container {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 20px;
+  height: 400px;
+  overflow-y: auto;
+}
+
+/* Bubbles */
+.message{
+  max-width: 78%;
+  margin: 10px 0;
+  padding: 12px 14px;
+  border-radius: 18px;
+  font-size: 14px; line-height: 1.45;
+  position: relative; animation: fade-in .25s ease;
+  box-shadow: 0 4px 14px rgba(2,8,23,.05);
+}
+.message.user{
+  margin-left: auto;
+  color: #0B3B73;
+  background: linear-gradient(180deg, #E0F2FE, #C7ECFF);
+  border-top-right-radius: 6px;
+  animation: slideInRight .25s ease;
+}
+.message.bot{
+  background: linear-gradient(180deg, #FFFFFF, #F7FAFF);
+  border-top-left-radius: 6px;
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.message-header span {
+  font-weight: 600;
+  color: var(--secondary-color);
+  font-size: 14px;
+}
+
+.message p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.timestamp {
+  font-size: 12px;
+  color: var(--text-light-gray);
+  position: absolute;
+  bottom: -20px;
+  right: 0;
+}
+
+/* ================================
+   Chat – Input
+================================== */
+.input-area{
+  margin-top:12px;
+  background: transparent;
+  border-top: 1px solid rgba(2,8,23,.06);
+  padding-top:12px;
+}
+
+.quick-questions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.quick-questions button {
+  background-color: var(--light-blue);
+  border: none;
+  padding: 10px 15px;
+  border-radius: var(--border-radius-round);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-dark);
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.quick-questions button:hover {
+  background-color: var(--accent-color);
+}
+
+.chat-input {
+  display: flex;
+  align-items: center; /* Alinha verticalmente o input e o botão */
+  gap: 10px;
+}
+
+.chat-input input {
+  flex: 1;
+  padding: 12px 15px; /* Um pouco mais de preenchimento vertical */
+  border: 1px solid #ccc; /* Usando uma cor padrão para o exemplo */
+  border-radius: 22px; /* Bordas mais arredondadas para um look moderno */
+  font-size: 1rem;
+  font-weight: 400;
+  outline: none; /* Remove a borda ao focar */
+}
+
+.chat-input input:focus {
+  border-color: #007bff; /* Destaca a borda quando o usuário está digitando */
+}
+
+.chat-input button {
+  background-color: #007bff; /* Cor primária */
+  color: white; /* O 'currentColor' no SVG usará esta cor */
+  border: none;
+  border-radius: 50%; /* Garante o formato de círculo */
+  cursor: pointer;
+  
+  /* Ajuste para garantir o círculo perfeito */
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0; /* Impede que o botão seja espremido */
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s ease;
+}
+
+.chat-input button:hover {
+  background-color: #0056b3; /* Cor secundária, mais escura */
+}
+
+/* Área Lateral Direita (Sidebar) */
+.sidebar {
+  flex: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.glass-card.news {
+  background: var(--card-background);
+  border-radius: var(--border-radius-sm);
+  padding: 15px;
+  box-shadow: var(--shadow-sm);
+}
+
+.glass-card.news h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 10px;
+}
+
+.glass-card.news p {
+  font-size: 14px;
+  color: var(--text-gray);
+  font-weight: 400;
+}
+
+.suggestions {
+  /* Fundo e Forma */
+  background-color: var(--white, #ffffff);
+  border-radius: var(--border-radius, 16px); /* Um raio de 16px é um bom padrão moderno */
+  border: 1px solid rgba(0, 0, 0, 0.05); /* Borda sutil para definir o card */
+
+  /* Espaçamento e Sombra */
+  padding: 1.5rem; /* Padding padronizado (24px) */
+  box-shadow: 0 4px 25px rgba(22, 44, 79, 0.06); /* Sombra mais suave e profissional */
+
+  /* Layout */
+  align-self: flex-start;
+  width: 100%; /* Garante que o card ocupe o espaço disponível no sidebar */
+}
+
+.suggestions h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 15px;
+}
+
+/* Container dos Insights */
+.insights-container {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Dois gráficos por linha */
+  gap: 20px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+/* Estilização dos Cards de Insights */
+.insights-container .card {
+  background-color: var(--white);
+  border-radius: var(--border-radius);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-left: 4px solid transparent;
+  transition: transform 0.2s ease;
+}
+
+.insights-container .card:hover {
+  transform: translateY(-2px);
+}
+
+.insights-container .card h2 {
+  font-size: 1.4rem;
+  color: var(--text-dark);
+  font-weight: 600;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.insights-container .card p.insight-text {
+  font-size: 0.9rem;
+  color: var(--text-gray);
+  margin-top: 15px;
+  text-align: center;
+}
+
+/* Canvas dentro dos Cards */
+.insights-container canvas {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 200px; /* Altura reduzida para melhor proporção nos cards */
+}
+
+.insight-card {
+  display: flex;
+  align-items: flex-start;
+  background-color: var(--card-background);
+  padding: 14px;
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--shadow-sm);
+  border-left: 6px solid transparent;
+  transition: transform 0.2s ease;
+}
+
+.insight-card:hover {
+  transform: translateY(-2px);
+}
+
+.insight-card.positive {
+  border-left-color: #10b981;
+}
+
+.insight-card.warning {
+  border-left-color: #f59e0b;
+}
+
+.insight-card.alert {
+  border-left-color: #ef4444;
+}
+
+.insight-card .icon-bubble {
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+}
+
+.insight-card div {
+  display: flex;
+  flex-direction: column;
+  margin-left: 10px;
+}
+
+.insight-card strong {
+  font-size: 16px;
+  color: var(--text-dark);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.insight-card p {
+  font-size: 14px;
+  color: var(--text-gray);
+  margin: 0;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* =========================
+   Animações
+========================= */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(2px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
