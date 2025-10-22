@@ -162,12 +162,11 @@ body {
 .charts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-  gap: var(--space-6); /* Mantém o espaçamento que você já definiu */
+  gap: var(--space-6);
   max-width: 1800px;
   margin: 0 auto;
 }
 
-/* NOVO: Media query para forçar 2 colunas em telas maiores */
 @media (min-width: 1024px) {
   .charts-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -176,19 +175,45 @@ body {
 
 .insights-container .card {
   width: 100%;
-  padding: var(--space-6); /* ALTERADO: Mais padding interno */
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4); /* ALTERADO: Mais espaçamento entre título e gráfico */
-  min-height: 350px;   /* ALTERADO: Aumentei a altura mínima para o gráfico respirar */
-  aspect-ratio: 16 / 10; /* ALTERADO:OQ FAZ TRAVAR  */
+  gap: var(--space-4);
+  min-height: 400px; /* Aumentei um pouco para melhor visualização */
+  /* ### CORREÇÃO ###: Removida a linha 'aspect-ratio' que causava problemas */
 }
+
 .insights-container .card canvas {
   width: 100% !important;
   height: 100% !important;
   flex: 1 1 auto;
   min-height: 0;
   border-radius: var(--radius);
+}
+
+/* ### ADIÇÃO ###: Estilo para o cabeçalho e indicador de estado do novo gráfico */
+.chart-header-realtime {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+}
+
+.chart-header-realtime h4 {
+    margin: 0;
+    font-size: var(--fs-md);
+    color: var(--text);
+}
+
+.state-indicator {
+    padding: 5px 12px;
+    border-radius: 999px;
+    color: var(--white);
+    font-weight: 600;
+    font-size: var(--fs-xs);
+    transition: background-color 0.3s ease;
+    text-align: center;
+    background-color: #6c757d; /* Cor padrão 'cinza' */
 }
 
 /* ====== Seção de Análise de Performance (gauge) ====== */
@@ -1003,3 +1028,41 @@ body {
     }
   }
 }
+
+    .chart-header-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap; /* Permite quebrar linha em telas pequenas */
+    }
+    .chart-header-controls h3 {
+      margin: 0;
+      margin-right: 10px; /* Espaço entre o título e os botões */
+    }
+    .chart-toggle {
+      display: flex;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .chart-toggle .toggle-btn {
+      padding: 6px 12px;
+      background-color: #f8f9fa;
+      border: none;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #555;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .chart-toggle .toggle-btn:not(:last-child) {
+      border-right: 1px solid #ddd;
+    }
+    .chart-toggle .toggle-btn:hover {
+      background-color: #e9ecef;
+    }
+    .chart-toggle .toggle-btn.active {
+      background-color: #007bff;
+      color: white;
+    }

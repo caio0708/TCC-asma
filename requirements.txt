@@ -21,7 +21,7 @@ sounddevice
 langchain_google_genai
 google.generativeai
 
-serial
+pyserial
 bleak
 
 # Deixar pasta do projeto TCC na msm do Ollama para IA funcionar
@@ -33,5 +33,4 @@ bleak
 # venv\Scripts\activate
 # C:\Users\caiot\AppData\Local\Temp\tfhub_modules\9616fd04ec2360621642ef9455b84f4b668e219e
 
-# python -m PyInstaller --onefile --noconsole --name="TCC_Asma" --add-data="templates;templates" --add-data="static;static" --add-data="model_artifacts;model_artifacts" --add-data="dados;dados" --add-data="faiss_index;faiss_index" --add-data="modelo_crise_asma.pkl;." --add-data="max30102_calibration.json;." app.py
-
+# python -m PyInstaller --onefile --noconsole --name="TCC_Asma" --add-data="templates;templates" --add-data="static;static" --add-data="model_artifacts;model_artifacts" --add-data="dados;dados" --add-data="faiss_index;faiss_index" --add-data="modelo_crise_asma.pkl;." --add-data="max30102_calibration.json;." --add-data=".env;." app.py

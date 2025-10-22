@@ -1,17 +1,17 @@
 from flask import Blueprint, render_template, session, request, redirect, flash, url_for, jsonify
 from datetime import datetime, timedelta
 import os
-import sqlite3  # [ALTERADO] Importado sqlite3 para acesso ao DB
-from pathlib import Path  # [ALTERADO] Para um caminho de arquivo mais robusto
+import sqlite3  #  Importado sqlite3 para acesso ao DB
+from pathlib import Path  # Para um caminho de arquivo mais robusto
 from dotenv import load_dotenv
 import csv
-from routes.crises import get_user_prediction
+from routes.crises import get_user_prediction, get_categorical_mappings
 from routes.api import get_air_quality, get_user_location
 
 painel_bp = Blueprint('painel', __name__)
 
 # --- CONSTANTES ---
-# [ALTERADO] O caminho agora aponta para o banco de dados SQLite
+# O caminho agora aponta para o banco de dados SQLite
 BASE_DIR = Path(__file__).resolve().parent.parent
 DB_PATH = BASE_DIR / "dados" / "sensores.db"
 
@@ -22,8 +22,6 @@ load_dotenv()
 def to_float(value):
     try: return float(value)
     except (ValueError, TypeError): return None
-
-# [ALTERADO] A função de leitura de CSV foi removida pois não é mais necessária.
 
 def get_historical_data(target_labels):
     """
@@ -177,53 +175,58 @@ def data():
 def questionario():
     return render_template("questionario.html")
 
-@painel_bp.route("/salvar_sintomas", methods=["POST"])
-def salvar_sintomas():
-    if request.method == 'POST':
-        if 'username' not in session:
-            flash('Faça login primeiro.', 'warning')
-            return redirect(url_for('configuracoes.configuracoes'))
+@painel_bp.route('/sintomas', methods=['POST'])
+def sintomas():
+    if 'username' not in session:
+        flash('Você precisa estar logado para registrar sintomas.', 'warning')
+        return redirect(url_for('configuracoes.configuracoes'))
 
-        data = request.form.get('data') or datetime.now().strftime('%Y-%m-%d')
-        hora = request.form.get('hora') or datetime.now().strftime('%H:%M')
+    data = datetime.now().strftime('%Y-%m-%d')
+    hora = datetime.now().strftime('%H:%M')
 
-        def get_int(name):
-            try: return int(request.form.get(name))
-            except (ValueError, TypeError): return 0
+    # Busca os mapeamentos
+    mappings = get_categorical_mappings()
 
-        def get_float(name):
-            try: return float(request.form.get(name))
-            except (ValueError, TypeError): return 0.0
+    def get_float(key):
+        return to_float(request.form.get(key))
 
-        sintomas_data = [
-            data, hora,
-            session.get('age', 0),
-            session.get('gender', ''),
-            get_float('BMI'),
-            get_int('Smoking_Status'),
-            get_int('Family_History'),
-            get_int('Allergies'),
-            get_int('Air_Pollution_Level'),
-            get_int('Physical_Activity_Level'),
-            get_int('Occupation_Type'),
-            get_int('Comorbidities'),
-            get_int('Medication_Adherence'),
-            get_int('Peak_Expiratory_Flow'),
-            get_int('FeNO_Level'),
-            get_int('Number_of_ER_Visits'),
-            session.get('username', '')
-        ]
+    def get_int(key):
+        try:
+            return int(request.form.get(key))
+        except (ValueError, TypeError):
+            return 0
+    
+    # Converte os valores do formulário para os textos corretos
+    sintomas_data = [
+        data, hora,
+        session.get('age', 0),
+        mappings['Gender'].get(session.get('gender', ''), ''), # Mapeia o gênero
+        get_float('BMI'),
+        mappings['Smoking_Status'].get(get_int('Smoking_Status'), 'Never'),
+        get_int('Family_History'), # Mantém como 0 ou 1
+        mappings['Allergies'].get(get_int('Allergies'), 'None'),
+        mappings['Air_Pollution_Level'].get(get_int('Air_Pollution_Level'), 'Low'),
+        mappings['Physical_Activity_Level'].get(get_int('Physical_Activity_Level'), 'Sedentary'),
+        mappings['Occupation_Type'].get(get_int('Occupation_Type'), 'Indoor'),
+        mappings['Comorbidities'].get(get_int('Comorbidities'), 'None'),
+        get_float('Medication_Adherence'), # Mantém como float
+        get_int('Peak_Expiratory_Flow'),
+        get_int('FeNO_Level'),
+        get_int('Number_of_ER_Visits'),
+        session.get('username', '')
+    ]
 
-        file_exists = os.path.isfile("dados/sintomas.csv")
-        with open("dados/sintomas.csv", mode="a", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow([
-                        "Data","Hora","Age","Gender", "BMI","Smoking_Status",
-                        "Family_History","Allergies","Air_Pollution_Level","Physical_Activity_Level",
-                        "Occupation_Type","Comorbidities","Medication_Adherence","Peak_Expiratory_Flow",
-                        "FeNO_Level","Number_of_ER_Visits","Username"
-                    ])
-            writer.writerow(sintomas_data)
+    file_exists = os.path.isfile("dados/sintomas.csv")
+    with open("dados/sintomas.csv", mode="a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow([
+                    "Data","Hora","Age","Gender", "BMI","Smoking_Status",
+                    "Family_History","Allergies","Air_Pollution_Level","Physical_Activity_Level",
+                    "Occupation_Type","Comorbidities","Medication_Adherence",
+                    "Peak_Expiratory_Flow","FeNO_Level","Number_of_ER_Visits", "Username"
+            ])
+        writer.writerow(sintomas_data)
 
-        return redirect("/")
+    flash('Sintomas registrados com sucesso!', 'success')
+    return redirect(url_for('painel.painel'))

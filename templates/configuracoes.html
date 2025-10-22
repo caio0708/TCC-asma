@@ -5,187 +5,273 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Configurações</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  <style>
-    /* FONTES E CORES */
+<style>
+    /* --- FONTES E CORES (Variáveis CSS) --- */
     :root {
-      --primary-color: #0EA5E9;
-      --primary-gradient: linear-gradient(135deg, #0EA5E9);
-      --danger-color: #d92550;
-      --background-color: #f0f2f5;
+      --primary-color: #0EA5E9; /* Azul ciano */
+      --primary-gradient: linear-gradient(135deg, #0EA5E9, #4A80E3);
+      --danger-color: #EF4444; /* Vermelho mais moderno */
+      --danger-hover-shadow: rgba(239, 68, 68, 0.4);
+      --background-color: #f0f4f8; /* Um cinza-azulado mais claro */
       --card-background: #ffffff;
-      --text-color: #333;
-      --light-text-color: #6c757d;
-      --input-background: #e9ecef;
+      --text-color: #1f2937; /* Cinza escuro (quase preto) */
+      --light-text-color: #6b7280; /* Cinza médio */
+      --input-background: #f3f4f6; /* Cinza bem claro para inputs */
+      --border-color: #d1d5db; /* Cor da borda */
     }
 
-    /* LAYOUT GERAL */
+    /* --- ANIMAÇÕES DINÂMICAS --- */
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 var(--danger-hover-shadow);
+      }
+      70% {
+        transform: scale(1.05);
+        box-shadow: 0 0 10px 15px rgba(239, 68, 68, 0);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+    /* --- LAYOUT GERAL --- */
     body {
       margin: 0;
-      font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: var(--background-color);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      /* Fundo com gradiente suave */
+      background-image: linear-gradient(to top right, #f0f4f8, #e0e5ec);
       color: var(--text-color);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
     main {
       display: flex;
+      flex-direction: column; /* Alinha flash messages acima do card */
       justify-content: center;
-      align-items: flex-start; /* Alinha no topo */
-      min-height: calc(100vh - 60px);
+      align-items: center;
+      min-height: 100vh;
       padding: 40px 20px;
+      box-sizing: border-box; /* Garante que o padding não quebre o layout */
     }
 
-    /* CARD PRINCIPAL */
-    .user-card {
-      background: var(--card-background);
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-      max-width: 450px;
+    /* --- CARD PRINCIPAL --- */
+    .config-card {
       width: 100%;
-      overflow: hidden; /* Garante que o header não vaze */
-    }
-    
-    .card-header {
-        background: var(--primary-gradient);
-        padding: 20px 30px;
-        color: white;
-    }
-    
-    .card-header h2 {
-        margin: 0;
-        font-size: 1.5rem;
-        text-align: center;
+      max-width: 500px;
+      background: var(--card-background);
+      /* Cantos arredondados e sombra suave */
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      overflow: hidden; /* Garante que o cabeçalho se ajuste aos cantos */
+      /* Transição suave para qualquer mudança de tamanho */
+      transition: all 0.3s ease;
     }
 
-    .card-body {
-        padding: 30px;
+    /* --- CABEÇALHO DO CARD --- */
+    .card-header {
+      /* Gradiente dinâmico no cabeçalho */
+      background: var(--primary-gradient);
+      color: white;
+      padding: 25px 30px;
     }
-    
-    /* FORMULÁRIO */
-    .field {
-      margin-bottom: 20px;
-    }
-    
-    .field label {
-      display: block;
-      margin-bottom: 8px;
+    .card-header h2 {
+      margin: 0;
+      font-size: 1.8rem;
       font-weight: 600;
-      font-size: 0.9rem;
-      color: var(--light-text-color);
     }
-    
-    .field input,
-    .field select {
+    .card-header p {
+      margin: 5px 0 0;
+      font-size: 1rem;
+      opacity: 0.9;
+    }
+
+    /* --- FORMULÁRIOS --- */
+    .config-form {
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .form-group label {
+      font-weight: 600;
+      color: var(--text-color);
+      font-size: 0.9rem;
+    }
+
+    /* --- INPUTS E SELECT (DINÂMICOS) --- */
+    .form-group input,
+    .form-group select {
       width: 100%;
       padding: 12px 15px;
-      font-size: 1rem;
-      border: none;
+      border: 2px solid var(--border-color);
       background-color: var(--input-background);
       border-radius: 8px;
-      transition: box-shadow 0.2s ease;
-      box-sizing: border-box; /* Garante que padding não afete a largura */
+      font-size: 1rem;
+      color: var(--text-color);
+      box-sizing: border-box; /* Importante para o padding */
+      /* Transição suave para o efeito de focus */
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
     
-    .field input:focus,
-    .field select:focus {
-      outline: none;
-      box-shadow: 0 0 0 3px rgb(14,165,233);
+    .form-group input[readonly] {
+      background-color: #e9ecef;
+      opacity: 0.7;
+      cursor: not-allowed;
     }
 
-    /* BOTÕES DE AÇÃO */
+    /* FEEDBACK DINÂMICO AO FOCAR (CLICAR) */
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      background-color: #fff;
+      /* Sombra suave azul */
+      box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+    }
+
+    /* --- BOTÕES (DINÂMICOS) --- */
     .actions {
       display: flex;
-      gap: 15px; /* Espaçamento entre botões */
-      margin-top: 25px;
+      gap: 12px;
+      margin-top: 10px;
     }
 
     .btn {
-      flex: 1;
-      padding: 12px 15px;
+      flex-grow: 1; /* Faz os botões dividirem o espaço */
+      padding: 12px 20px;
       font-size: 1rem;
       font-weight: 600;
+      text-align: center;
+      text-decoration: none;
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      text-decoration: none;
-      text-align: center;
-      transition: all 0.2s ease;
+      /* Sombra e transição para o efeito "levantar" */
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease-in-out;
+    }
+
+    /* EFEITO DINÂMICO DE HOVER (PASSAR O MOUSE) */
+    .btn:hover {
+      /* Levanta o botão */
+      transform: translateY(-2px);
+      /* Aumenta a sombra */
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
     }
     
+    .btn:active {
+      transform: translateY(0); /* Pressiona o botão */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Botão Primário (Salvar, Entrar) */
     .btn-primary {
       background: var(--primary-gradient);
       color: white;
     }
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
 
-    /* NOVO ESTILO PARA O BOTÃO SAIR */
+    /* Botão Logout (Vazado) */
     .btn-logout {
-      background-color: #ff5c6a; /* Fundo vermelho bem claro */
-      color: #ffffff;           /* Texto vermelho escuro para contraste */
+      background: transparent;
+      color: var(--light-text-color);
+      /* Borda sutil */
+      border: 2px solid var(--border-color);
+      box-shadow: none;
     }
-
     .btn-logout:hover {
-      background-color: #ff2137; /* Cor um pouco mais forte ao passar o mouse */
-      color: #ffffff;
+      background: var(--light-text-color);
+      border-color: var(--light-text-color);
+      color: white;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
     }
-        
-    .btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    
-    /* SEPARADOR */
+
+    /* --- SEÇÃO DE CRISE (DINÂMICA) --- */
     .separator {
-        border: none;
-        height: 1px;
-        background-color: #e0e0e0;
-        margin: 30px 0;
+      border: 0;
+      height: 1px;
+      background-color: var(--border-color);
+      margin: 0 30px;
     }
-    
-    /* SEÇÃO DE CRISE */
+
     .crisis-section {
-        text-align: center;
+      padding: 30px;
+      text-align: center;
     }
-    
     .crisis-section h3 {
-        margin-top: 0;
-        margin-bottom: 8px;
-        font-size: 1.2rem;
+      margin: 0 0 10px 0;
+      font-weight: 600;
     }
-    
     .crisis-section p {
-        margin-top: 0;
-        color: var(--light-text-color);
-        margin-bottom: 20px;
+      margin: 0 0 20px 0;
+      color: var(--light-text-color);
     }
-    
+
+    /* Botão de Crise (com ANIMAÇÃO) */
     .btn-crisis {
-        width: 100%;
-        background-color: var(--danger-color);
-        color: white;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 10px;
-        animation: pulse-shadow 2s infinite;
+      background-color: var(--danger-color);
+      color: white;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-size: 1.1rem;
+      /* Aplica a animação de pulsação */
+      animation: pulse 2s infinite;
     }
-    
     .btn-crisis:hover {
-        background-color: #b81c42;
+      /* Pausa a animação e aumenta o botão */
+      animation-play-state: paused;
+      transform: scale(1.05) translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
     }
 
-    @keyframes pulse-shadow {
-        0% { box-shadow: 0 0 0 0 rgba(217, 37, 80, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(217, 37, 80, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(217, 37, 80, 0); }
+    /* --- MENSAGENS FLASH (Alertas) --- */
+    .flash-messages {
+      width: 100%;
+      max-width: 500px;
+      margin-bottom: 20px;
+      box-sizing: border-box;
     }
-
-    /* AJUSTES PARA TELAS PEQUENAS */
-    @media (max-width: 500px) {
-      main {
-        padding: 20px 15px;
-      }
-      .card-header { padding: 15px 20px; }
-      .card-body { padding: 20px; }
-      .actions { flex-direction: column; }
+    .alert {
+      padding: 15px 20px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-weight: 500;
+      border: 1px solid transparent;
+    }
+    .alert-success {
+      background-color: #d1fae5;
+      border-color: #a7f3d0;
+      color: #065f46;
+    }
+    .alert-danger {
+      background-color: #fee2e2;
+      border-color: #fecaca;
+      color: #991b1b;
+    }
+    .alert-warning {
+      background-color: #fef3c7;
+      border-color: #fde68a;
+      color: #92400e;
+    }
+    .alert-info {
+      background-color: #dbeafe;
+      border-color: #bfdbfe;
+      color: #1e40af;
     }
 
   </style>
@@ -206,63 +292,101 @@
   </nav>
 
   <main>
-    <div class="user-card">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages" style="width: 100%; max-width: 500px; margin-bottom: 20px;">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% if session.get('username') %}
+    
+    <div class="config-card">
       <div class="card-header">
-          <h2>Configurações de Perfil</h2>
+        <h2>Configurações do Perfil</h2>
+        <p>Atualize suas informações pessoais.</p>
       </div>
 
-      <div class="card-body">
-        <form method="POST" action="{{ url_for('configuracoes.configuracoes') }}">
-          <div class="field">
-            <label for="username">Nome</label>
-            <input type="text" id="username" name="username" placeholder="Seu nome" value="{{ session.get('username', '') }}" required />
-          </div>
-
-          <div class="field">
-            <label for="age">Idade</label>
-            <input type="number" id="age" name="age" placeholder="Sua idade" min="1" value="{{ session.get('age', '') }}" required />
-          </div>
-
-          <div class="field">
-            <label for="altura">Altura (cm)</label>
-            <input type="number" id="altura" name="altura" placeholder="Sua altura em cm" min="1" value="{{ session.get('altura', '') }}" required />
-          </div>
-
-          <div class="field">
-            <label for="gender">Gênero</label>
-            <select id="gender" name="gender" required>
-              <option value="" disabled {% if not session.get('gender') %}selected{% endif %}>Selecione</option>
-              <option value="Masculino" {% if session.get('gender') == "Masculino" %}selected{% endif %}>Masculino</option>
-              <option value="Feminino" {% if session.get('gender') == "Feminino" %}selected{% endif %}>Feminino</option>
-              <option value="Outro" {% if session.get('gender') == "Outro" %}selected{% endif %}>Outro</option>
-            </select>
-          </div>
-
-          <div class="actions">
-            <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-            {% if session.get('username') %}
-              <a href="{{ url_for('configuracoes.logout') }}" class="btn btn-logout">Sair</a>
-            {% endif %}
-          </div>
-        </form>
-
-        <hr class="separator">
-
-        <div class="crisis-section">
-          <h3>Registro de Eventos</h3>
-          <p>Pressione o botão abaixo em caso de crise.</p>
-          <form action="{{ url_for('configuracoes.registrar_crise') }}" method="post">
-            <button type="submit" class="btn btn-crisis">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
-                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-              </svg>
-              <span>Registrar Crise Agora</span>
-            </button>
-          </form>
+      <form class="config-form" method="post" action="{{ url_for('configuracoes.configuracoes') }}">
+        <div class="form-group">
+          <label for="username">Nome de Usuário</label>
+          <input type="text" id="username" name="username" value="{{ session.get('username', '') }}" readonly>
         </div>
 
+        <div class="form-group">
+          <label for="age">Idade</label>
+          <input type="number" id="age" name="age" value="{{ session.get('age', '') }}" required>
+        </div>
+
+        <div class="form-group">
+          <label for="altura">Altura (metros)</label>
+          <input type="number" step="0.01" id="altura" name="altura" value="{{ session.get('altura', '') }}" required>
+        </div>
+
+        <div class="form-group">
+          <label for="gender">Gênero</label>
+          <select id="gender" name="gender" required>
+            <option value="Masculino" {% if session.get('gender') == "Masculino" %}selected{% endif %}>Masculino</option>
+            <option value="Feminino" {% if session.get('gender') == "Feminino" %}selected{% endif %}>Feminino</option>
+            <option value="Outro" {% if session.get('gender') == "Outro" %}selected{% endif %}>Outro</option>
+          </select>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+          <a href="{{ url_for('configuracoes.logout') }}" class="btn btn-logout">Sair</a>
+        </div>
+      </form>
+
+      <hr class="separator">
+
+      <div class="crisis-section">
+        <h3>Registro de Eventos</h3>
+        <p>Pressione o botão abaixo em caso de crise.</p>
+        <form action="{{ url_for('configuracoes.registrar_crise') }}" method="post">
+          <button type="submit" class="btn btn-crisis">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16">
+              <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+            </svg>
+            Registrar Crise
+          </button>
+        </form>
       </div>
     </div>
+
+{% else %}
+
+    <div class="config-card">
+      <div class="card-header">
+        <h2>Login</h2>
+        <p>Acesse sua conta para continuar.</p>
+      </div>
+
+      <form class="config-form" method="post" action="{{ url_for('configuracoes.configuracoes') }}">
+        <div class="form-group">
+          <label for="username_login">Nome de Usuário</label>
+          <input type="text" id="username_login" name="username_login" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="password_login">Senha</label>
+          <input type="password" id="password_login" name="password_login" required>
+        </div>
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">Entrar</button>
+        </div>
+      </form>
+      
+      <div style="text-align: center; padding: 0 30px 30px 30px;">
+        <p>Não tem uma conta? <a href="{{ url_for('configuracoes.registro') }}" style="color: #0EA5E9; text-decoration: none; font-weight: 600;">Registre-se aqui</a></p>
+      </div>
+      </div>
+    {% endif %}
   </main>
 </body>
 </html>

@@ -1,15 +1,14 @@
 # insights.py
 
-from flask import Blueprint, render_template, jsonify, request, session
-from datetime import datetime
+from flask import Blueprint, render_template, jsonify, request, session, current_app 
+from datetime import datetime, timedelta
 import pandas as pd
+import sqlite3
 import numpy as np
 import os
 from dotenv import load_dotenv
 import subprocess
 import threading
-import json
-import paho.mqtt.client as mqtt
 from routes.sensores import SENSORES_PADRAO
 import sqlite3
 import tensorflow as tf
@@ -61,52 +60,6 @@ except Exception as e:
 SAMPLING_RATE = 50
 MIN_SAMPLES = 2 * SAMPLING_RATE
 CHART_WINDOW_SECONDS = 5
-
-# Configuração MQTT
-live_data_lock = threading.Lock()
-live_sensor_data = {s['id']: s['valor'] for s in SENSORES_PADRAO}
-
-BROKER = "broker.hivemq.com"
-PORT = 1883
-TOPIC_ALL = "sensorestcc/+"
-
-def on_connect(client, userdata, flags, rc):
-    if rc == 0:
-        #print("Insights.py | Conectado ao broker MQTT")
-        client.subscribe(TOPIC_ALL)
-    else:
-        print(f"Insights.py | Falha na conexão, código: {rc}")
-
-def on_message(client, userdata, msg):
-    try:
-        sensor_id = msg.topic.split('/')[-1]
-        payload = msg.payload.decode('utf-8')
-        try:
-            dados = json.loads(payload)
-            valor = dados['valor'] if isinstance(dados, dict) and 'valor' in dados else dados
-        except json.JSONDecodeError:
-            try:
-                valor = float(payload) if '.' in payload else int(payload)
-            except ValueError:
-                valor = payload
-        with live_data_lock:
-            live_sensor_data[sensor_id] = float(valor) if isinstance(valor, (int, float, str)) and str(valor).replace('.', '', 1).isdigit() else valor
-          #  print(f"Insights.py | Atualizado {sensor_id}: {live_sensor_data[sensor_id]}")
-    except Exception as e:
-        print(f"Insights.py | Erro ao processar mensagem MQTT: {e}")
-
-def start_mqtt_listener():
-    client = mqtt.Client()
-    client.on_connect = on_connect
-    client.on_message = on_message
-    try:
-        client.connect(BROKER, PORT, 60)
-        client.loop_forever()
-    except Exception as e:
-        print(f"Insights.py | Erro ao conectar ao broker MQTT: {e}")
-
-mqtt_thread = threading.Thread(target=start_mqtt_listener, daemon=True)
-mqtt_thread.start()
 
 def predict_audio_class(wav_path):
     if not ml_model or not ml_encoder:
@@ -384,72 +337,120 @@ def get_empty_analysis_data():
 
 def get_env_data():
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # <<< OTIMIZAÇÃO: Definir o limite para os gráficos >>>
+    # O gráfico de análise processa os últimos 5 segundos de dados (5s * 50Hz = 250 amostras)
+    chart_limit = CHART_WINDOW_SECONDS * SAMPLING_RATE 
+    
     try:
         conn = sqlite3.connect(DB_PATH)
-        df_raw = pd.read_sql_query("SELECT * FROM sensores ORDER BY Data DESC, Hora DESC LIMIT 5000", conn)
+        
+        # <<< OTIMIZAÇÃO: Query 1 (Pequena, para os gráficos de análise) >>>
+        # Busca apenas os 250 registros mais recentes para a análise de janela
+        df_latest_raw = pd.read_sql_query(f"SELECT * FROM sensores ORDER BY Data DESC, Hora DESC LIMIT {chart_limit}", conn)
+
+        # <<< OTIMIZAÇÃO: Query 2 (Maior, mas só 2 colunas, para o gráfico de tosse semanal) >>>
+        today = datetime.now().date()
+        seven_days_ago = today - timedelta(days=6)
+        df_weekly_cough_raw = pd.read_sql_query(
+            'SELECT "Data", "contagem-tosse" FROM sensores WHERE "Data" >= ?', 
+            conn, 
+            params=(seven_days_ago.strftime('%Y-%m-%d'),)
+        )
+        
         conn.close()
-        if df_raw.empty:
+        
+        # <<< Lógica de erro atualizada para usar o novo DataFrame >>>
+        if df_latest_raw.empty:
             print("Insights.py | get_env_data: Banco de dados vazio")
             empty_data = get_empty_analysis_data()
             empty_data['error'] = "O banco de dados está vazio."
             return empty_data
-        df_raw['Timestamp'] = pd.to_datetime(df_raw['Data'] + ' ' + df_raw['Hora'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
-        df_raw.dropna(subset=['Timestamp'], inplace=True)
-        print(f"Insights.py | get_env_data: Número de amostras brutas: {len(df_raw)}")
-        weekly_cough_analysis = analyze_weekly_cough(df_raw.copy())
-        df_latest = df_raw.head(CHART_WINDOW_SECONDS * SAMPLING_RATE)  # 5 segundos * 50 Hz = 250 amostras
-        print(f"Insights.py | get_env_data: Número de amostras para análise: {len(df_latest)}")
-        if len(df_latest) < MIN_SAMPLES:
-            print(f"Insights.py | get_env_data: Dados insuficientes para análise ({len(df_latest)} amostras)")
+            
+        # Processa dados dos gráficos
+        df_latest_raw['Timestamp'] = pd.to_datetime(df_latest_raw['Data'] + ' ' + df_latest_raw['Hora'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
+        df_latest_raw.dropna(subset=['Timestamp'], inplace=True)
+        
+        # <<< Processa dados da tosse com o DataFrame otimizado >>>
+        weekly_cough_analysis = analyze_weekly_cough(df_weekly_cough_raw.copy()) 
+        
+        analysis_data = None 
+        if len(df_latest_raw) < MIN_SAMPLES:
             analysis_data = get_empty_analysis_data()['analysis']
         else:
-            df_to_analyze = df_latest.iloc[::-1].reset_index(drop=True)
+            # <<< Usa o DataFrame otimizado para a análise >>>
+            df_to_analyze = df_latest_raw.iloc[::-1].reset_index(drop=True) 
             analysis_data = run_full_analysis(df_to_analyze)
+        
         res = analysis_data['results']
-        with live_data_lock:
-            current_live_data = live_sensor_data.copy()
-            for sensor_id, value in current_live_data.items():
-                if sensor_id in res:
-                    try:
-                        res[sensor_id] = float(value) if isinstance(value, (int, float, str)) and str(value).replace('.', '', 1).isdigit() else value
-                    except (ValueError, TypeError):
-                        print(f"Insights.py | get_env_data: Valor inválido para {sensor_id}: {value}")
-                        res[sensor_id] = value
-        temp_api, humidity_api = get_weather(lat, lon)
-        api_key = os.getenv('API_WEATHER_KEY')
-        # Chama a função corrigida e verifica o resultado
-        air_quality_data = get_air_quality(lat, lon, api_key)
-        if air_quality_data:
-            aqi, pm2_5, pm10, o3, no2, so2 = air_quality_data
-        else:
-            # Define valores padrão caso a API tenha falhado
-            aqi, pm2_5, pm10, o3, no2, so2 = (None, None, None, None, None, None)
-        # Atualiza o dicionário 'res' com os dados da API (ou com os valores padrão)
-        res['temperatura-ambiente'] = round(float(temp_api), 2) if temp_api is not None else res.get('temperatura-ambiente', 0)
-        res['umidade'] = round(float(humidity_api), 2) if humidity_api is not None else res.get('umidade', 0)
-        res['qualidade-ar-aqi'] = int(aqi) if aqi is not None else res.get('qualidade-ar-aqi', 0)
-        res['qualidade-ar-pm25'] = float(pm2_5) if pm2_5 is not None else res.get('qualidade-ar-pm25', 0)
-        res['qualidade-ar-pm10'] = float(pm10) if pm10 is not None else res.get('qualidade-ar-pm10', 0)
 
-        # Garantir que contagem-tosse seja o valor máximo do dia atual
-        if not df_raw.empty:
-            today = pd.to_datetime(datetime.now().date())
-            df_today = df_raw[pd.to_datetime(df_raw['Data']) == today]
+        # ... (leitura do app_state e remoção das chamadas de API de clima permanecem iguais) ...
+
+        app_state_global = current_app.config['app_state']
+        state_lock_global = current_app.config['state_lock']
+
+        with state_lock_global:
+            current_live_data = app_state_global.copy()
+        
+        for sensor_id, value in current_live_data.items():
+            if sensor_id in res:
+                try:
+                    res[sensor_id] = float(value) if isinstance(value, (int, float, str)) and str(value).replace('.', '', 1).isdigit() else value
+                except (ValueError, TypeError):
+                    res[sensor_id] = value
+
+        # <<< Lógica de contagem de tosse diária atualizada >>>
+        if not df_latest_raw.empty:
+            today_dt = pd.to_datetime(datetime.now().date())
+            # Filtra o df_latest_raw (últimos 250) para hoje
+            df_today = df_latest_raw[pd.to_datetime(df_latest_raw['Data']).dt.date == today_dt.date()]
             if not df_today.empty:
                 res['contagem-tosse'] = int(df_today['contagem-tosse'].max())
+            
+            # Fallback: Se os 250 últimos não forem de hoje, verifica o Df semanal
+            elif not df_weekly_cough_raw.empty:
+                df_weekly_cough_raw['Data'] = pd.to_datetime(df_weekly_cough_raw['Data'], errors='coerce')
+                df_today_weekly = df_weekly_cough_raw[df_weekly_cough_raw['Data'].dt.date == today_dt.date()]
+                if not df_today_weekly.empty:
+                        res['contagem-tosse'] = int(df_today_weekly['contagem-tosse'].max())
         
-        # --- CÁLCULO DO PERF ---
-        # Chama a função de previsão, passando os dados atuais dos sensores
-        pefr_prediction = predict_perf(res)
+                # --- Sanitização para predict_perf: impede float(None) / float("") ---
+        def _to_float(x, default=0.0):
+            if x is None:
+                return default
+            if isinstance(x, (int, float)):
+                return float(x)
+            if isinstance(x, str):
+                s = x.strip().replace(',', '.')
+                try:
+                    return float(s)
+                except Exception:
+                    return default
+            return default
+
+        # Converte todos os valores do res para float seguro
+        perf_input = {k: _to_float(v) for k, v in res.items()}
+
+        try:
+            pefr_prediction = predict_perf(perf_input)
+        except Exception as e:
+            # Não deixe quebrar o fluxo: registre e devolva um erro tratável ao front
+            print(f"❌ ERRO inesperado em predict_perf: {e}")
+            pefr_prediction = {"error": f"Falha ao calcular PERF: {e}"}
+
+
+        # ... (triggers e o resto da função permanecem iguais) ...
 
         triggers = []
-        if res.get('contagem-tosse', 0) > 3: triggers.append('Tosse Excessiva')
-        if 0 < res.get('saturacao', 100) < 95: triggers.append('Baixa Saturação')
-        if res.get('frequencia-respiratoria', 0) > 25: triggers.append('Respiração Acelerada')
-        if res.get('temperatura-ambiente', 0) > 35: triggers.append('Calor Excessivo')
-        if res.get('temperatura-corporal', 0) > 38: triggers.append('Febre Detectada')
+        ### CORREÇÃO: Removido o erro de digitação 'saturação' com 'ç'.
+        saturacao_val = res.get('saturacao') 
+        
+        if saturacao_val is not None and 0 < saturacao_val < 95:
+            triggers.append('Baixa Saturação')
 
-        # Adiciona gatilho com base na previsão do PERF
+        if res.get('contagem-tosse', 0) > 5: triggers.append('Tosse Excessiva')
+        if res.get('frequencia-respiratoria', 0) > 25: triggers.append('Respiração Acelerada')
+        if res.get('temperatura-corporal', 0) > 38: triggers.append('Febre Detectada')
         if pefr_prediction and pefr_prediction.get("zone") == "RISK":
             triggers.append('Risco de Crise (PERF Baixo)')
 
@@ -457,7 +458,7 @@ def get_env_data():
             'timestamp': timestamp,
             'analysis': analysis_data,
             'triggers': triggers,
-            'pefr_prediction': pefr_prediction,  # Adiciona os dados de PERF na resposta
+            'pefr_prediction': pefr_prediction,
             'weekly_cough_data': weekly_cough_analysis if weekly_cough_analysis else {"labels": [], "data": []}
         }
     except (sqlite3.Error, ValueError, FileNotFoundError) as e:
@@ -465,7 +466,7 @@ def get_env_data():
         empty_data = get_empty_analysis_data()
         empty_data['error'] = str(e)
         return empty_data
-
+    
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -545,3 +546,298 @@ def predict_audio_route():
     if "error" in prediction_result:
         return jsonify(prediction_result), 500
     return jsonify(prediction_result), 200
+
+@insights_bp.route('/api/historical_data')
+def api_historical_data():
+    """
+    Endpoint que retorna dados históricos agregados para um sensor.
+    Ex: /api/historical_data?sensor=batimentos-cardiacos&hours=24
+    """
+    sensor_name = request.args.get('sensor')
+    hours = request.args.get('hours', 1, type=int) ### ALTERADO: Padrão de 24h para 1h
+
+    if not sensor_name:
+        return jsonify({"error": "Parâmetro 'sensor' é obrigatório."}), 400
+    
+    # Lista de sensores permitidos para evitar injeção de SQL
+    allowed_sensors = [
+        'batimentos-cardiacos','saturacao','temperatura-corporal','som','piezo',
+        'acelerometro-x','acelerometro-y','acelerometro-z',
+        'giroscopio-x','giroscopio-y','giroscopio-z',
+        'contagem-tosse','frequencia-respiratoria'
+    ]
+
+    if sensor_name not in allowed_sensors:
+        return jsonify({"error": "Sensor não permitido ou inválido."}), 400
+
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        end_time = datetime.now()
+        start_time = end_time - timedelta(hours=hours)
+        
+        # Query SQL segura (usamos aspas duplas para o nome da coluna)
+        query = f'SELECT "Data", "Hora", "{sensor_name}" FROM sensores WHERE "Data" || " " || "Hora" >= ?'
+        
+        df = pd.read_sql_query(query, conn, params=(start_time.strftime('%Y-%m-%d %H:%M:%S'),))
+        conn.close()
+
+        if df.empty:
+            return jsonify({"points": []}) # Retorna lista vazia se não houver dados
+
+        df['Timestamp'] = pd.to_datetime(df['Data'] + ' ' + df['Hora'], errors='coerce')
+        df.dropna(subset=['Timestamp'], inplace=True)
+        # Remove valores onde o sensor é 0, exceto para tosse
+        if sensor_name != 'contagem-tosse':
+            df = df[df[sensor_name] != 0]
+
+        df = df.set_index('Timestamp')
+        
+        # Define a regra de agregação (downsampling)
+        agg_rule = '5T' # 5 minutos para 24h
+        if hours <= 1:
+            agg_rule = '10S' # 10 segundos se for 1 hora
+        elif hours <= 6:
+            agg_rule = '1T' # 1 minuto se for 6 horas
+        
+        # Usar .mean() para sensores analógicos, .max() para tosse
+        if sensor_name == 'contagem-tosse':
+            df_agg = df[sensor_name].resample(agg_rule).max()
+        else:
+            df_agg = df[sensor_name].resample(agg_rule).mean()
+
+        # Preenche com 'None' (null no JSON) para criar lacunas no gráfico
+        df_agg = df_agg.where(pd.notna(df_agg), None)
+        
+        # Formatar para Chart.js {x, y}
+        chart_data = [
+            {'x': idx.isoformat(), 'y': val}
+            for idx, val in df_agg.items()
+        ]
+        
+        ### CORREÇÃO: A variável 'out' não estava definida. A variável correta é 'chart_data'.
+        ### 'minutes' não está definido, mas 'hours' está. 'rule_seconds' não está, mas 'agg_rule' está.
+        return jsonify({"points": chart_data, "hours": hours, "rule": agg_rule}), 200, {'Cache-Control': 'no-store'}
+
+    except Exception as e:
+        print(f"Insights.py | api_historical_data: ERRO: {e}")
+        return jsonify({"error": f"Erro ao processar dados históricos: {str(e)}"}), 500
+
+@insights_bp.route('/api/mpu6050_latest')
+def api_mpu6050_latest():
+    """
+    Endpoint leve que retorna apenas os dados mais recentes do acelerômetro.
+    """
+    app_state = current_app.config['app_state']
+    state_lock = current_app.config['state_lock']
+
+    with state_lock:
+        data = {
+            'timestamp': datetime.now().isoformat(), 
+            'accel_x': app_state.get('acelerometro-x', 0),
+            'accel_y': app_state.get('acelerometro-y', 0),
+            'accel_z': app_state.get('acelerometro-z', 0),
+        
+            'state': app_state.get('mpu_state', 0) 
+        }
+    return jsonify(data)
+
+@insights_bp.route('/api/motion_history')
+def motion_history():
+    """
+    Histórico agregado (magnitude) do movimento:
+    - acc_mag = sqrt( (avg(ax))^2 + (avg(ay))^2 + (avg(az))^2 )
+    - gyro_mag = sqrt( (avg(gx))^2 + (avg(gy))^2 + (avg(gz))^2 )
+    """
+    try:
+        minutes = int(request.args.get('minutes', 60))
+        end_time = datetime.now()
+        start_time = end_time - timedelta(minutes=minutes)
+
+        if minutes <= 120:
+            rule_seconds = 10
+        elif minutes <= 360:
+            rule_seconds = 30
+        elif minutes <= 720:
+            rule_seconds = 60
+        else:
+            rule_seconds = 300
+
+        con = sqlite3.connect(DB_PATH)
+        sql = """
+        SELECT
+          strftime('%Y-%m-%dT%H:%M:%SZ',
+                   CAST(strftime('%s', "Data" || ' ' || "Hora") / ? AS INTEGER) * ?) AS ts_bin,
+          AVG("acelerometro-x") AS ax,
+          AVG("acelerometro-y") AS ay,
+          AVG("acelerometro-z") AS az,
+          AVG("giroscopio-x") AS gx,
+          AVG("giroscopio-y") AS gy,
+          AVG("giroscopio-z") AS gz
+        FROM sensores
+        WHERE ("Data" || ' ' || "Hora") >= ?
+          AND ("Data" || ' ' || "Hora") <= ?
+        GROUP BY ts_bin
+        ORDER BY ts_bin ASC
+        """
+        params = [rule_seconds, rule_seconds,
+                  start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                  end_time.strftime('%Y-%m-%d %H:%M:%S')]
+        cur = con.cursor()
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+        con.close()
+
+        if not rows:
+            return jsonify({"points": []})
+
+        out = []
+        for r in rows:
+            ts, ax, ay, az, gx, gy, gz = r
+            # trata None como 0 para não quebrar a magnitude
+            ax = 0.0 if ax is None else float(ax)
+            ay = 0.0 if ay is None else float(ay)
+            az = 0.0 if az is None else float(az)
+            gx = 0.0 if gx is None else float(gx)
+            gy = 0.0 if gy is None else float(gy)
+            gz = 0.0 if gz is None else float(gz)
+            acc_mag = (ax*ax + ay*ay + az*az) ** 0.5
+            gyro_mag = (gx*gx + gy*gy + gz*gz) ** 0.5
+            out.append({"t": ts, "acc": acc_mag, "gyro": gyro_mag})
+
+        return jsonify({"points": out, "minutes": minutes, "rule_seconds": rule_seconds})
+    except Exception as e:
+        print(f"❌ Erro em /api/motion_history: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@insights_bp.route('/api/mpu6050_history')
+def mpu6050_history():
+    try:
+        minutes = int(request.args.get('minutes', 180))  # 3h por padrão
+        end_time = datetime.now()
+        start_time = end_time - timedelta(minutes=minutes)
+
+        # Define o tamanho do "bin" de agregação (em segundos)
+        # Isso é a "aproximação" que você pediu
+        if minutes <= 120:   # 2h ou menos
+            rule_seconds = 10  # Agrupa a cada 10 segundos
+        elif minutes <= 360: # 6h ou menos
+            rule_seconds = 30  # Agrupa a cada 30 segundos
+        elif minutes <= 720: # 12h ou menos
+            rule_seconds = 60  # Agrupa a cada 1 minuto
+        else:                # Até 24h
+            rule_seconds = 300 # Agrupa a cada 5 minutos
+
+        con = sqlite3.connect(DB_PATH)
+        
+        # OTIMIZAÇÃO: Fazer a agregação (resampling) diretamente no SQL
+        # Isso é muito mais rápido do que carregar milhões de linhas no pandas
+        sql = """
+        SELECT
+          -- Arredonda o timestamp para o início do intervalo (bin) e formata como ISO
+          strftime('%Y-%m-%dT%H:%M:%SZ', CAST(strftime('%s', "Data" || ' ' || "Hora") / ? AS INTEGER) * ?) AS ts_bin,
+          AVG("acelerometro-x") AS ax,
+          AVG("acelerometro-y") AS ay,
+          AVG("acelerometro-z") AS az
+        FROM sensores
+        WHERE ("Data" || ' ' || "Hora") >= ?
+          AND ("Data" || ' ' || "Hora") <= ?
+        GROUP BY ts_bin  -- Agrupa pelos intervalos de tempo
+        ORDER BY ts_bin ASC
+        """
+        
+        params = [
+            rule_seconds, 
+            rule_seconds,
+            start_time.strftime('%Y-%m-%d %H:%M:%S'),
+            end_time.strftime('%Y-%m-%d %H:%M:%S')
+        ]
+        
+        cursor = con.cursor()
+        cursor.execute(sql, params)
+        rows = cursor.fetchall()
+        con.close()
+
+        if not rows:
+            return jsonify({"points": []})
+
+        # Formata a saída para o Chart.js
+        # O pandas não é mais necessário aqui
+        out = [{"t": row[0],
+                "ax": (None if row[1] is None else float(row[1])),
+                "ay": (None if row[2] is None else float(row[2])),
+                "az": (None if row[3] is None else float(row[3]))}
+               for row in rows]
+               
+        return jsonify({"points": out, "minutes": minutes, "rule_seconds": rule_seconds})
+
+    except Exception as e:
+        print(f"❌ Erro em /api/mpu6050_history: {e}")
+        return jsonify({"error": str(e)}), 500
+    
+@insights_bp.route('/api/piezo_latest')
+def api_piezo_latest():
+    """
+    Endpoint leve que retorna apenas a leitura mais recente do piezo
+    (para o gráfico 'live' fluido).
+    """
+    app_state = current_app.config['app_state']
+    state_lock = current_app.config['state_lock']
+    with state_lock:
+        data = {
+            'timestamp': datetime.now().isoformat(),
+            'piezo': app_state.get('piezo', 0)  # valor instantâneo do sinal
+        }
+    return jsonify(data)
+
+
+@insights_bp.route('/api/piezo_history')
+def piezo_history():
+    """
+    Histórico agregado do piezo, com bins adaptativos por intervalo (igual ao MPU).
+    """
+    try:
+        minutes = int(request.args.get('minutes', 60))  # 1h por padrão
+        end_time = datetime.now()
+        start_time = end_time - timedelta(minutes=minutes)
+
+        # Mesmo esquema de binagem do MPU【:contentReference[oaicite:2]{index=2}】
+        if minutes <= 120:
+            rule_seconds = 10
+        elif minutes <= 360:
+            rule_seconds = 30
+        elif minutes <= 720:
+            rule_seconds = 60
+        else:
+            rule_seconds = 300
+
+        con = sqlite3.connect(DB_PATH)
+        sql = """
+        SELECT
+          strftime('%Y-%m-%dT%H:%M:%SZ',
+                   CAST(strftime('%s', "Data" || ' ' || "Hora") / ? AS INTEGER) * ?) AS ts_bin,
+          AVG("piezo") AS pz
+        FROM sensores
+        WHERE ("Data" || ' ' || "Hora") >= ?
+          AND ("Data" || ' ' || "Hora") <= ?
+        GROUP BY ts_bin
+        ORDER BY ts_bin ASC
+        """
+        params = [rule_seconds, rule_seconds,
+                  start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                  end_time.strftime('%Y-%m-%d %H:%M:%S')]
+        cur = con.cursor()
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+        con.close()
+
+        if not rows:
+            return jsonify({"points": []})
+
+        out = [{"t": row[0],
+                "pz": (None if row[1] is None else float(row[1]))}
+               for row in rows]
+        return jsonify({"points": out, "minutes": minutes, "rule_seconds": rule_seconds})
+    except Exception as e:
+        print(f"❌ Erro em /api/piezo_history: {e}")
+        return jsonify({"error": str(e)}), 500

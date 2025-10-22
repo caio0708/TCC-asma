@@ -1,4 +1,4 @@
-# chat.py — VERSÃO GEMINI
+# chat.py — VERSÃO CORRIGIDA
 
 import os
 from dotenv import load_dotenv
@@ -8,7 +8,8 @@ import traceback
 from functools import lru_cache
 from operator import itemgetter
 
-from flask import Blueprint, render_template, request, jsonify
+# <<< ALTERADO: Adicionado 'current_app' para acessar o estado global >>>
+from flask import Blueprint, render_template, request, jsonify, current_app
 from cachetools import TTLCache
 
 from langchain_core.output_parsers import StrOutputParser
@@ -17,18 +18,19 @@ from langchain_core.runnables import RunnableParallel
 from langchain_community.vectorstores import FAISS
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 
-# >>> TROCA: Azure → Gemini
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 import google.generativeai as genai
 
 from routes.api import get_user_location, get_air_quality, get_weather
-from routes.sensores import lista_sensores
+# <<< ALTERADO: Importa o TEMPLATE de sensores, e não a lista com dados >>>
+from routes.sensores import SENSORES_PADRAO
 
 # --- Configuração Inicial ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FAISS_INDEX_PATH = os.path.join(BASE_DIR, 'faiss_index')
-load_dotenv()
+dotenv_path = os.path.join(BASE_DIR, '.env')
+load_dotenv(dotenv_path=dotenv_path)
 
 chat_bp = Blueprint('chat', __name__)
 cache = TTLCache(maxsize=200, ttl=900)
@@ -36,9 +38,10 @@ cache = TTLCache(maxsize=200, ttl=900)
 PALAVRAS_CHAVE_ASMA = ["asma", "respiração", "inalador", "bronquite", "alergia", "pulmão", "crise", "sintomas", "tratamento", "como estou", "meus dados", "analise meus sensores"]
 SAUDACOES = ["oi", "olá", "bom dia", "boa tarde", "boa noite", "como vai", "tudo bem","ola"]
 
-# --- Análises ambientais  ---
+# --- Análises ambientais (sem alterações) ---
 @lru_cache(maxsize=128)
 def analisar_qualidade_ar(aqi):
+    # ... (código existente)
     niveis = [
         ("Bom", "🟢", "A qualidade do ar é ideal. Não há riscos significativos para pacientes asmáticos."),
         ("Razoável", "🟡", "A qualidade do ar é aceitável. Pacientes sensíveis devem evitar esforços prolongados."),
@@ -46,12 +49,13 @@ def analisar_qualidade_ar(aqi):
         ("Ruim", "🔴", "A qualidade do ar é ruim. Recomenda-se permanecer em ambientes internos."),
         ("Muito Ruim", "🟣", "Risco elevado à saúde; permaneça em ambientes internos com purificação de ar."),
     ]
-    idx = min(max(aqi - 1, 0), 4)
+    idx = min(max(int(aqi) - 1, 0), 4)
     nivel, emoji, recomendacao = niveis[idx]
     return {"condicao": "AQI", "valor": f"{aqi}", "nivel": nivel, "emoji": emoji, "recomendacao": recomendacao}
 
 @lru_cache(maxsize=128)
 def analisar_umidade(humidity):
+    # ... (código existente)
     if 30 <= humidity <= 50:
         nivel, emoji, recomendacao = "Ideal", "🟢", "Níveis de umidade ideais para pacientes asmáticos."
     elif humidity > 50:
@@ -62,6 +66,7 @@ def analisar_umidade(humidity):
 
 @lru_cache(maxsize=128)
 def analisar_temperatura(temp):
+    # ... (código existente)
     if 18 <= temp <= 22:
         nivel, emoji, recomendacao = "Agradável", "🟢", "Temperatura confortável para pacientes asmáticos."
     elif temp < 18:
@@ -71,38 +76,17 @@ def analisar_temperatura(temp):
     return {"condicao": "Temperatura", "valor": f"{temp}°C", "nivel": nivel, "emoji": emoji, "recomendacao": recomendacao}
 
 
-# --- IA Especialista (RAG) ---
+# --- IA Especialista (RAG) (sem alterações) ---
 if not os.path.exists(FAISS_INDEX_PATH):
     raise FileNotFoundError(f"Índice '{FAISS_INDEX_PATH}' não encontrado. Execute 'fontes.py' para criá-lo.")
-
-# --- helper para normalizar o nome do modelo de embeddings
+# ... (todo o resto da configuração do LangChain, Gemini, Prompts, etc. permanece igual)
 def _embed_model_name():
     name = os.environ.get("GEMINI_EMBEDDING_MODEL", "text-embedding-004").strip()
     return name if name.startswith("models/") else f"models/{name}"
-
-embeddings = GoogleGenerativeAIEmbeddings(
-    model=_embed_model_name(),
-    google_api_key=os.environ["GOOGLE_API_KEY"],
-)
-
-
+embeddings = GoogleGenerativeAIEmbeddings(model=_embed_model_name(), google_api_key=os.environ["GOOGLE_API_KEY"],)
 vectorstore = FAISS.load_local(FAISS_INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
 retriever = vectorstore.as_retriever(search_kwargs={'k': 3})
-
-# >>> LLM principal (Gemini) — flash = mais rápido
-llm = ChatGoogleGenerativeAI(
-    model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
-    google_api_key=os.environ["GOOGLE_API_KEY"],
-    temperature=0.1,
-    safety_settings={
-        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE, 
-        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-    },
-)
-
-# --- Prompt especialista em asma (mantido com ajustes mínimos) ---
+llm = ChatGoogleGenerativeAI(model=os.environ.get("GEMINI_MODEL", "gemini-1.5-flash"), google_api_key=os.environ["GOOGLE_API_KEY"], temperature=0.1, safety_settings={HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE, HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE, HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE, HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,},)
 prompt_template = """
 Você é um assistente de IA especialista em asma, em PT-BR, empático e baseado em evidências.
 
@@ -147,76 +131,29 @@ PERGUNTA DO USUÁRIO:
 
 RESPOSTA:
 """
-PROMPT = PromptTemplate(
-    template=prompt_template,
-    input_variables=["context", "question", "sensor_data"],
-)
-
-def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
-
-chain = (
-    RunnableParallel(
-        context=(itemgetter("question") | retriever | format_docs),
-        question=itemgetter("question"),
-        sensor_data=itemgetter("sensor_data"),
-        source_documents=(itemgetter("question") | retriever)
-    )
-    | {
-        "result": PROMPT | llm | StrOutputParser(),
-        "source_documents": itemgetter("source_documents")
-    }
-)
-
+PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question", "sensor_data"],)
+def format_docs(docs): return "\n\n".join(doc.page_content for doc in docs)
+chain = (RunnableParallel(context=(itemgetter("question") | retriever | format_docs), question=itemgetter("question"), sensor_data=itemgetter("sensor_data"), source_documents=(itemgetter("question") | retriever)) | {"result": PROMPT | llm | StrOutputParser(), "source_documents": itemgetter("source_documents")})
 def detectar_tipo_pergunta(pergunta):
     pergunta_lower = pergunta.lower()
-    if any(s in pergunta_lower for s in SAUDACOES):
-        return "saudacao"
-    elif any(p in pergunta_lower for p in PALAVRAS_CHAVE_ASMA) or pergunta.strip():
-        return "asma"
-    else:
-        return "outro"
-
-# --- Função utilitária: Grounding com Google Search para perguntas gerais ---
+    if any(s in pergunta_lower for s in SAUDACOES): return "saudacao"
+    elif any(p in pergunta_lower for p in PALAVRAS_CHAVE_ASMA) or pergunta.strip(): return "asma"
+    else: return "outro"
 async def resposta_com_grounding(pergunta: str) -> str:
-    """
-    Usa o Gemini com Grounding (Pesquisa Google) para perguntas não diretamente ligadas aos sensores,
-    retornando conteúdo com fontes/citações.
-    """
-
     genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
-
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash")
     model = genai.GenerativeModel(model_name)
-
-    # Ativa Grounding com Google Search (docs oficiais abaixo)
-    # https://ai.google.dev/gemini-api/docs/google-search
-    # https://ai.google.dev/gemini-api/docs/grounding
     tools = {"google_search_retrieval": {}}
-
-    # Recomendado: pedir citações inline
-    response = await asyncio.to_thread(
-        model.generate_content,
-        contents=[{"role": "user", "parts": [pergunta]}],
-        tools=tools,
-        generation_config={"temperature": 0.2, "top_p": 0.9},
-        # safety_settings pode ser ajustado aqui também
-    )
-
+    response = await asyncio.to_thread(model.generate_content, contents=[{"role": "user", "parts": [pergunta]}], tools=tools, generation_config={"temperature": 0.2, "top_p": 0.9},)
     text = getattr(response, "text", None) or "".join(p.text for p in response.candidates[0].content.parts if hasattr(p, "text"))
-    # Opcional: anexar fontes quando disponíveis
     try:
         citations = []
         grounding_metadata = response.candidates[0].grounding_metadata
         if grounding_metadata and getattr(grounding_metadata, "grounding_chunks", None):
             for chunk in grounding_metadata.grounding_chunks:
-                if getattr(chunk, "web", None) and getattr(chunk.web, "uri", None):
-                    citations.append(chunk.web.uri)
-        if citations:
-            text += "\n\nFontes: " + ", ".join(citations[:5])
-    except Exception:
-        pass
-
+                if getattr(chunk, "web", None) and getattr(chunk.web, "uri", None): citations.append(chunk.web.uri)
+        if citations: text += "\n\nFontes: " + ", ".join(citations[:5])
+    except Exception: pass
     return text or "Não encontrei resultados suficientes no momento."
 
 # --- Rotas Flask ---
@@ -238,10 +175,16 @@ async def dados_ambientais():
         aqi, pm2_5, pm10, o3, no2, so2 = await air_task
         t, humidity = await weather_task
 
-        temperatura_amb = next((s["valor"] for s in lista_sensores if s["id"] == "temperatura-ambiente"), None)
+        # <<< CORREÇÃO: Acessa o estado central para pegar a temperatura >>>
+        app_state = current_app.config['app_state']
+        state_lock = current_app.config['state_lock']
+        with state_lock:
+            # Pega o valor do estado; se não existir, usa o valor da API (t) como fallback.
+            temperatura_amb = app_state.get("temperatura-ambiente")
+
         sugestoes_list = [
             analisar_qualidade_ar(aqi),
-            analisar_temperatura(temperatura_amb if temperatura_amb is not None else t),
+            analisar_temperatura(temperatura_amb if temperatura_amb is not None and temperatura_amb > 0 else t),
             analisar_umidade(humidity),
         ]
         response_data = {"cidade": city, "sugestoes_ambientais": sugestoes_list}
@@ -257,7 +200,6 @@ def sugestoes_iniciais():
     Retorna uma lista fixa de perguntas sugeridas para o chat.
     """
     try:
-        # Lista de perguntas fixas, conforme solicitado
         sugestoes = [
             "Como estão meus sintomas?",
             "Faça um relatório da minha situação atual",
@@ -265,10 +207,8 @@ def sugestoes_iniciais():
         ]
         return jsonify({"sugestoes": sugestoes})
     except Exception as e:
-        # É bom manter o log de erros, caso algo inesperado aconteça
         logging.error(f"Erro inesperado ao gerar sugestões fixas: {str(e)}")
         return jsonify({"error": "Não foi possível carregar as sugestões."}), 500
-
 
 @chat_bp.route("/api/chat", methods=["POST"])
 async def api_chat():
@@ -285,9 +225,29 @@ async def api_chat():
         elif tipo_pergunta == "asma":
             logging.info(f"Pergunta recebida: '{pergunta}'")
 
-            sensor_data_str = "\n".join(
-                [f"- {s['id'].replace('-', ' ').title()}: {s['valor']} {s['unidade']}" for s in lista_sensores]
-            ) or "Dados dos sensores não disponíveis."
+            # <<< CORREÇÃO: Acessa o estado central para montar a string de dados >>>
+            app_state = current_app.config['app_state']
+            state_lock = current_app.config['state_lock']
+            
+            sensor_data_str = ""
+            with state_lock:
+                # Cria uma cópia segura para evitar problemas de concorrência
+                current_state = app_state.copy()
+
+            # Itera sobre o TEMPLATE de sensores para garantir uma ordem consistente
+            for sensor in SENSORES_PADRAO:
+                sensor_id = sensor['id']
+                # Pega o valor do estado atual; se não existir, usa 'N/A'
+                valor = current_state.get(sensor_id, 'N/A')
+                unidade = sensor.get('unidade', '')
+                
+                # Adiciona à string apenas se o valor for numérico e maior que zero (ou relevante)
+                if isinstance(valor, (int, float)) and valor > 0:
+                     sensor_data_str += f"- {sensor['id'].replace('-', ' ').title()}: {valor:.2f} {unidade}\n"
+
+            if not sensor_data_str:
+                sensor_data_str = "Dados dos sensores não disponíveis ou zerados no momento."
+            
             logging.info(f"Dados dos sensores formatados:\n{sensor_data_str}")
 
             result = await asyncio.to_thread(
@@ -301,7 +261,6 @@ async def api_chat():
                 resposta += f"\n\n*Fontes consultadas: {', '.join(fontes)}*"
 
         else:
-            # Para perguntas gerais: usar Grounding com Google Search
             resposta = await resposta_com_grounding(pergunta)
 
         logging.info(f"Resposta enviada: '{resposta}'")

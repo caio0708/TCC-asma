@@ -102,7 +102,7 @@
 <main class="container">
   <h1 class="form-title">Registrar Sintomas Respiratórios</h1>
 
-  <form action="/salvar_sintomas" method="POST">
+  <form action="/sintomas" method="POST">
 
     <div class="form-group">
       <label>Selecione os sintomas presentes:</label>
@@ -122,7 +122,7 @@
             <input type="number" id="BMI" name="BMI" step="0.1" min="15" max="45" required>
         </div>
         <div class="form-grid">
-            <label for="Medication_Adherence">Adesão à Medicação (0.0 a 1.0)</label>
+            <label for="Medication_Adherence">Adesão à Medicação (0.0 Não a 1.0 Sim)</label>
             <input type="number" id="Medication_Adherence" name="Medication_Adherence" step="0.1" min="0" max="1.0" required>
         </div>
         <div class="form-grid">
@@ -144,57 +144,54 @@
         <!-- CAMPOS CATEGÓRICOS (ESCOLHA ÚNICA) -->
         <div class="form-grid">
             <label for="Smoking_Status">Status de Tabagismo</label>
-            <select id="Smoking_Status" name="Smoking_Status" required>
-                <option value="Current">Fumante Atual</option>
-                <option value="Former">Ex-Fumante</option>
-                <option value="Never">Nunca Fumou</option>
-            </select>
+          <select id="Smoking_Status" name="Smoking_Status" required>
+            <option value="2">Fumante Atual</option>   <!-- 2 = Current -->
+            <option value="1">Ex-Fumante</option>      <!-- 1 = Former -->
+            <option value="0">Nunca Fumou</option>     <!-- 0 = Never -->
+          </select>
         </div>
         <div class="form-grid">
             <label for="Allergies">Alergias</label>
             <select id="Allergies" name="Allergies" required>
-                <option value="None">Nenhuma</option>
-                <option value="Dust">Poeira</option>
-                <option value="Pets">Animais de Estimação</option>
-                <option value="Pollen">Pólen</option>
-                <option value="Multiple">Múltiplas</option>
+                <option value="0">Nenhuma</option>
+                <option value="1">Poeira</option>
+                <option value="2">Animais de Estimação</option>
+                <option value="3">Pólen</option>
+                <option value="4">Múltiplas</option>
             </select>
         </div>
         <div class="form-grid">
             <label for="Air_Pollution_Level">Nível de Poluição do Ar</label>
             <select id="Air_Pollution_Level" name="Air_Pollution_Level" required>
-                <option value="High">Alto</option>
-                <option value="Moderate">Moderado</option>
-                <option value="Low">Baixo</option>
+                <option value="2">Alto</option>
+                <option value="1">Moderado</option>
+                <option value="0">Baixo</option>
             </select>
         </div>
         <div class="form-grid">
             <label for="Physical_Activity_Level">Nível de Atividade Física</label>
             <select id="Physical_Activity_Level" name="Physical_Activity_Level" required>
-                <option value="Sedentary">Sedentário</option>
-                <option value="Moderate">Moderado</option>
-                <option value="Active">Ativo</option>
+                <option value="0">Sedentário</option>
+                <option value="1">Moderado</option>
+                <option value="2">Ativo</option>
             </select>
         </div>
         <div class="form-grid">
             <label for="Occupation_Type">Tipo de Ocupação</label>
             <select id="Occupation_Type" name="Occupation_Type" required>
-                <option value="Indoor">Interna (Indoor)</option>
-                <option value="Outdoor">Externa (Outdoor)</option>
+                <option value="0">Interna (Indoor)</option>
+                <option value="1">Externa (Outdoor)</option>
             </select>
         </div>
         <div class="form-grid">
             <label for="Comorbidities">Comorbidades</label>
             <select id="Comorbidities" name="Comorbidities" required>
-                <option value="None">Nenhuma</option>
-                <option value="Diabetes">Diabetes</option>
-                <option value="Hypertension">Hipertensão</option>
-                <option value="Both">Ambas</option>
+                <option value="0">Nenhuma</option>
+                <option value="1">Diabetes</option>
+                <option value="2">Hipertensão</option>
+                <option value="3">Ambas</option>
             </select>
         </div>
-
-
-
 
       </div>
     </div>

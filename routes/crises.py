@@ -14,11 +14,22 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELO_CRISE_DIR = os.path.join(BASE_DIR, "model_artifacts")
 MODELO_CRISE_PATH = os.path.join(MODELO_CRISE_DIR, "crise_model.joblib")
 
-# Corrigido o nome do arquivo para o dataset fornecido.
 file_path = os.path.join(BASE_DIR, 'dados/synthetic_asthma_dataset.csv')
 
-# --- 2. Treinamento e Seleção do Melhor Modelo ---
+# --- Mapeamentos para Variáveis Categóricas ---
+def get_categorical_mappings():
+    """Retorna dicionários de mapeamento para variáveis categóricas."""
+    return {
+        'Gender': {'Masculino': 'Male', 'Feminino': 'Female', 'Outro': 'Other'},
+        'Smoking_Status': {0: 'Never', 1: 'Former', 2: 'Current'},
+        'Allergies': {0: 'None', 1: 'Dust', 2: 'Pollen', 3: 'Pets', 4: 'Multiple'},
+        'Air_Pollution_Level': {0: 'Low', 1: 'Moderate', 2: 'High'},
+        'Physical_Activity_Level': {0: 'Sedentary', 1: 'Moderate', 2: 'Active'},
+        'Occupation_Type': {0: 'Indoor', 1: 'Outdoor'},
+        'Comorbidities': {0: 'None', 1: 'Diabetes', 2: 'Hypertension', 3: 'Both'}
+    }
 
+# --- 2. Treinamento e Seleção do Melhor Modelo ---
 def treinar_e_avaliar_modelos():
     """
     Carrega os dados, treina múltiplos modelos, seleciona o melhor com base na acurácia
@@ -60,56 +71,52 @@ def treinar_e_avaliar_modelos():
         print(f"\nMelhor modelo: {best_model_name} com acurácia de {best_accuracy:.4f}")
         os.makedirs(MODELO_CRISE_DIR, exist_ok=True)
         
-        # [CORRIGIDO] Salva um dicionário com o modelo, colunas e acurácia
         model_data_to_save = {
             'model': best_model,
-            'columns': X_train.columns,
+            'columns': X_train.columns.tolist(),
             'accuracy': best_accuracy
         }
         joblib.dump(model_data_to_save, MODELO_CRISE_PATH)
         print(f"Melhor modelo e metadados salvos em: {MODELO_CRISE_PATH}")
-
+        
     return best_model, X_train.columns, best_accuracy
 
 # --- 3. Carregamento do Modelo e Colunas de Treino ---
-
-# Tenta carregar um modelo pré-existente. Se não existir, treina um novo.
 try:
     print("Carregando modelo de crise existente...")
-    # [CORRIGIDO] Carrega o dicionário e extrai as informações
     model_data = joblib.load(MODELO_CRISE_PATH)
     best_model = model_data['model']
     X_train_cols = model_data['columns']
     best_accuracy = model_data['accuracy']
-    print(f"Modelo carregado com sucesso. Acurácia: {best_accuracy:.4f}")
-except (FileNotFoundError, NotADirectoryError, KeyError):
-    print("Modelo não encontrado ou em formato antigo. Treinando um novo modelo...")
+    print("Modelo carregado com sucesso.")
+except FileNotFoundError:
+    print("Modelo de crise não encontrado. Treinando um novo modelo...")
     best_model, X_train_cols, best_accuracy = treinar_e_avaliar_modelos()
-    if best_model is None:
-        print("Falha no treinamento do modelo. A predição não funcionará.")
-        best_model, X_train_cols, best_accuracy = None, [], 0.0
+except Exception as e:
+    print(f"Um erro inesperado ocorreu ao carregar o modelo: {e}")
+    print("Tentando treinar um novo modelo...")
+    best_model, X_train_cols, best_accuracy = treinar_e_avaliar_modelos()
 
-# --- 4. Funções de Predição e Lógica da Aplicação ---
-
-def predict_crisis(new_patient: dict, model_to_use, train_columns) -> int:
+# --- 4. Função de Predição ---
+def predict_crisis(sample_patient: dict, model, expected_cols: list) -> int:
     """
-    Prevê a crise de asma para um novo paciente.
-    Aplica o mesmo pré-processamento (one-hot encoding) usado no treino.
+    Realiza a predição para um novo paciente, alinhando as colunas
+    com as colunas usadas no treinamento.
     """
-    if not model_to_use or train_columns is None or train_columns.empty:
-        raise ValueError("Modelo não está treinado ou as colunas de treino não estão disponíveis.")
+    df_new = pd.DataFrame([sample_patient])
+    
+    # Remove colunas que não são features
+    df_new = df_new.drop(columns=['Data', 'Hora', 'Username'], errors='ignore')
 
-    df_new = pd.DataFrame([new_patient])
     df_new_encoded = pd.get_dummies(df_new)
-    df_new_aligned = df_new_encoded.reindex(columns=train_columns, fill_value=0)
-
-    prediction = model_to_use.predict(df_new_aligned)
+    df_new_aligned = df_new_encoded.reindex(columns=expected_cols, fill_value=0)
+    
+    prediction = model.predict(df_new_aligned)
     return int(prediction[0])
 
 def get_user_prediction(username: str) -> tuple:
     """
     Busca os dados mais recentes de um usuário e realiza a predição.
-    Esta função assume a existência de um arquivo 'dados/sintomas.csv'.
     """
     filepath = os.path.join(BASE_DIR, 'dados/sintomas.csv')
 
@@ -132,11 +139,6 @@ def get_user_prediction(username: str) -> tuple:
     try:
         resultado = predict_crisis(sample_patient, best_model, X_train_cols)
     except ValueError as e:
-        return None, str(e), best_accuracy, None, None
-    except Exception as e:
-        return None, f"Erro durante a predição: {e}", best_accuracy, None, None
-
-    data = sample_patient.get('Data', 'N/A')
-    hora = sample_patient.get('Hora', 'N/A')
-
-    return resultado, None, best_accuracy, data, hora
+        return None, f"Erro de valor ao alinhar os dados: {e}", best_accuracy, None, None
+    
+    return resultado, None, best_accuracy, sample_patient.get("Data"), sample_patient.get("Hora")

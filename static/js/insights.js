@@ -1,5 +1,5 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
-  // Inicializa um objeto para manter as instÃ¢ncias dos grÃ¡ficos
+document.addEventListener('DOMContentLoaded', () => {
+  // Inicializa um objeto para manter as instâncias dos gráficos
   let calendar;
   const charts = {
     ppgChart: null,
@@ -7,11 +7,76 @@
     soundChart: null,
     motionChart: null,
     piezoChart: null,
-    weeklyCoughChart: null
+    weeklyCoughChart: null,
+    realtimeMotionChart: null // Adicionado para o gráfico MPU
   };
   let isLoadingData = false; // Variavel de controle para evitar race conditions
+  let lastAnalysisData = null; // Armazena os últimos dados da análise "live"
 
-  // --- MINIGAME LOGIC (sem alteraÃ§Ãµes) ---
+  // Controle do modo "live dedicado" do Piezo
+let piezoUpdateInterval = null;
+let isPiezoLiveLoopOn = false;
+const PIEZO_MAX_DATA_POINTS = 100;
+
+function initPiezoChart() {
+  const canvas = document.getElementById('piezoChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const config = {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'Piezo (Mov. Torácico)', data: [], borderWidth: 1.5, pointRadius: 0, tension: 0.1 }
+    ]},
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { type: 'time', time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' } }, ticks: { maxRotation: 0, autoSkip: true } },
+        y: { title: { display: true, text: 'Amplitude do Sinal' }, min: 0, max: 5000 }
+      },
+      animation: false
+    }
+  };
+  createOrUpdateChart('piezoChart', config);
+}
+
+async function fetchPiezoLatest() {
+  const chart = charts['piezoChart'];
+  if (!chart) return;
+  try {
+    const res = await fetch('/api/piezo_latest');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const t = new Date(data.timestamp);
+    chart.data.labels.push(t);
+    chart.data.datasets[0].data.push(data.piezo);
+    while (chart.data.labels.length > PIEZO_MAX_DATA_POINTS) {
+      chart.data.labels.shift();
+      chart.data.datasets[0].data.shift();
+    }
+    chart.update('none');
+  } catch (e) {
+    console.error('Falha ao buscar dados do Piezo:', e);
+    stopPiezoUpdates();
+  }
+}
+
+function startPiezoUpdates() {
+  stopPiezoUpdates();
+  initPiezoChart();
+  fetchPiezoLatest();
+  piezoUpdateInterval = setInterval(fetchPiezoLatest, 1000); // 1 Hz (igual MPU)
+  isPiezoLiveLoopOn = true;
+}
+
+function stopPiezoUpdates() {
+  if (piezoUpdateInterval) clearInterval(piezoUpdateInterval);
+  piezoUpdateInterval = null;
+  isPiezoLiveLoopOn = false;
+}
+
+  
+  // --- MINIGAME LOGIC (sem alterações) ---
   const breathingText = document.getElementById("breathingText"),
         breathingCircle = document.getElementById("breathingCircle"),
         circleProgress = document.querySelector(".circle-progress"),
@@ -42,7 +107,7 @@
       mediaRecorder.onstop = () => {
         let blob = new Blob(audioChunks, { type: "audio/webm" });
         if (predictionResultEl) {
-            predictionResultEl.innerHTML = '<p class="loading">Analisando o Ã¡udio...</p>';
+            predictionResultEl.innerHTML = '<p class="loading">Analisando o áudio...</p>';
             predictionResultEl.style.display = 'block';
         }
         let formData = new FormData();
@@ -60,27 +125,27 @@
           })
           .then(res => res.json().then(data => ({ ok: res.ok, status: res.status, data })))
           .then(({ ok, status, data }) => {
-              if (!ok) throw new Error(data.error || `Falha na prediÃ§Ã£o (${status})`);
+              if (!ok) throw new Error(data.error || `Falha na predição (${status})`);
               if (predictionResultEl) {
                   const confidencePercent = (data.confidence * 100).toFixed(1);
                   predictionResultEl.innerHTML = `
-                      <p class="result-title">Resultado da AnÃ¡lise:</p>
+                      <p class="result-title">Resultado da Análise:</p>
                       <p class="result-class">${data.predicted_class}</p>
-                      <p class="result-confidence">ConfianÃ§a: ${confidencePercent}%</p>
+                      <p class="result-confidence">Confiança: ${confidencePercent}%</p>
                   `;
               }
           })
           .catch(err => {
-              console.error("âŒ Erro no processo de anÃ¡lise de Ã¡udio:", err);
+              console.error("❌ Erro no processo de análise de áudio:", err);
               if (predictionResultEl) {
-                  predictionResultEl.innerHTML = `<p class="error">Falha ao processar o Ã¡udio: ${err.message}</p>`;
+                  predictionResultEl.innerHTML = `<p class="error">Falha ao processar o áudio: ${err.message}</p>`;
               }
           });
       };
       mediaRecorder.start();
     } catch (e) {
-      console.error("Erro ao obter mÃ­dia:", e);
-      alert("NÃ£o foi possÃ­vel acessar o microfone. Verifique as permissÃµes do navegador.");
+      console.error("Erro ao obter mídia:", e);
+      alert("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
     }
   }
 
@@ -115,7 +180,7 @@
         circleProgress.style.transition = "none";
         circleProgress.style.strokeDashoffset = `${circumference}`;
         breathingText.textContent = "Pronto?";
-        startButton.textContent = "Iniciar ExercÃ­cio";
+        startButton.textContent = "Iniciar Exercício";
         pararGravacao();
       } else {
         if (predictionResultEl) predictionResultEl.style.display = 'none';
@@ -125,7 +190,7 @@
         isRunning = true;
         phaseIndex = 0;
         animatePhase(phases[phaseIndex]);
-        startButton.textContent = "Parar ExercÃ­cio";
+        startButton.textContent = "Parar Exercício";
       }
     });
   }
@@ -138,10 +203,10 @@
     if(!container) return;
     container.innerHTML = '';
     const metrics = [
-      { label: 'Batimentos Cardí­acos', value: results['batimentos-cardiacos'] > 0 ? results['batimentos-cardiacos'].toFixed(0) : 'N/A', unit: 'BPM' },
+      { label: 'Batimentos Cardíacos', value: results['batimentos-cardiacos'] > 0 ? results['batimentos-cardiacos'].toFixed(0) : 'N/A', unit: 'BPM' },
       { label: 'Saturação', value: results['saturacao'] > 0 ? results['saturacao'].toFixed(1) : 'N/A', unit: '%' },
       { label: 'Temperatura Corporal', value: results['temperatura-corporal'] > 0 ? results['temperatura-corporal'].toFixed(2) : 'N/A', unit: '°C' },
-      { label: 'Ní­vel de Ruí­do', value: results['som'] > 0 ? results['som'].toFixed(0) : 'N/A', unit: 'ADC' },
+      { label: 'Nível de Ruído', value: results['som'] > 0 ? results['som'].toFixed(0) : 'N/A', unit: 'ADC' },
     ];
     metrics.forEach(metric => {
       const card = document.createElement('div');
@@ -152,27 +217,66 @@
   }
 
   /**
-   * Generic function to create or update a chart efficiently.
+   * Atualiza o medidor de PERF (Pico de Fluxo Expiratório)
    */
-function createOrUpdateChart(chartId, config) {
-  const canvas = document.getElementById(chartId);
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
+  function updatePerfGauge(pefrData) {
+      const perfSection = document.getElementById('perfAnalysis');
+      if (!perfSection) return;
 
-  // Use Chart.getChart to find any existing chart on the canvas
-  const existingChart = Chart.getChart(canvas);
-  if (existingChart) {
-    existingChart.destroy();
+      if (pefrData && !pefrData.error) {
+          document.getElementById('perfPredicted').textContent = pefrData.predicted_pefr;
+          document.getElementById('perfReference').textContent = pefrData.reference_pefr;
+          document.getElementById('perfPercentage').textContent = pefrData.percentage.toFixed(1) + '%';
+          
+          const zoneTextElement = document.getElementById('perfZoneText');
+          zoneTextElement.textContent = pefrData.zone;
+
+          const indicator = document.getElementById('perfIndicator');
+          // Limita o valor em 100% para não ultrapassar a barra visualmente
+          const positionPercentage = Math.min(pefrData.percentage, 100);
+          indicator.style.left = positionPercentage + '%';
+
+          // Adiciona a classe de cor correspondente à zona
+          const zoneClass = pefrData.zone.toLowerCase();
+          zoneTextElement.className = 'zone-label ' + zoneClass;
+      } else {
+           // Caso não haja dados de PERF, exibe uma mensagem
+           const predictedEl = document.getElementById('perfPredicted');
+           if (predictedEl) {
+              predictedEl.textContent = '--';
+              document.getElementById('perfReference').textContent = '--';
+              document.getElementById('perfPercentage').textContent = '--%';
+              document.getElementById('perfZoneText').textContent = 'Indisponível';
+              document.getElementById('perfZoneText').className = 'zone-label';
+              document.getElementById('perfIndicator').style.left = '0%';
+           }
+           console.warn("Dados de PERF indisponíveis ou com erro:", pefrData?.error);
+      }
   }
 
-  // Create the new chart
-  charts[chartId] = new Chart(ctx, config);
-}
+
+  /**
+   * Generic function to create or update a chart efficiently.
+   */
+  function createOrUpdateChart(chartId, config) {
+    const canvas = document.getElementById(chartId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    // Use Chart.getChart to find any existing chart on the canvas
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) {
+      existingChart.destroy();
+    }
+
+    // Create the new chart
+    charts[chartId] = new Chart(ctx, config);
+  }
 
   /**
    * Helper function to display a "No Data" message on a canvas.
    */
-  function showNoDataMessage(chartId) {
+  function showNoDataMessage(chartId, message = 'Dados insuficientes para exibir o gráfico') {
     const canvas = document.getElementById(chartId);
     if (!canvas) return;
     
@@ -189,9 +293,25 @@ function createOrUpdateChart(chartId, config) {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#999';
     ctx.font = '16px "Segoe UI", "Roboto", "Helvetica Neue", sans-serif';
-    ctx.fillText('Dados insuficientes para exibir o grÃ¡fico', canvas.width / 2, canvas.height / 2);
+    ctx.fillText(message, canvas.width / 2, canvas.height / 2);
     ctx.restore();
-}
+  }
+
+    // --- Helpers comuns para histórico (padroniza e sanitiza pontos) ---
+  function toFiniteOrNull(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  function sanitizePoints(points) {
+    if (!Array.isArray(points)) return [];
+    return points.map(p => {
+      // aceita {x, y} ou {t, ax/ay/az/pz/value}
+      const x = p.x ?? p.t ?? p.ts ?? null;
+      const rawY = p.y ?? p.value ?? p.pz ?? p.ax ?? p.ay ?? p.az ?? null;
+      return { x, y: toFiniteOrNull(rawY) };
+    });
+  }
+
 
   /**
    * Converts a timestamp to a relative time string (e.g., "X seconds ago").
@@ -200,71 +320,68 @@ function createOrUpdateChart(chartId, config) {
     const now = new Date();
     const time = new Date(timestamp);
     const diffSeconds = (now - time) / 1000;
-    if (diffSeconds < 60) return `${Math.round(diffSeconds)}s atrÃ¡s`;
+    if (diffSeconds < 60) return `${Math.round(diffSeconds)}s atrás`;
     return time.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   }
 
-  /**
-   * Renders all analysis charts with improved time axis and fixed Y-axis limits.
-   */
-  function renderAnalysisCharts(analysisData) {
-    if (!analysisData || !analysisData.charts) {
-      Object.keys(charts).forEach(key => {
-        if (key !== 'weeklyCoughChart') showNoDataMessage(key);
-      });
-      return;
-    }
-
-    const chartData = analysisData.charts;
-    const commonOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: { duration: 0 },
-      plugins: { 
-        legend: { position: 'bottom' },
-        tooltip: {
-          callbacks: {
-            title: (tooltipItems) => {
-              return formatRelativeTime(tooltipItems[0].label);
-            }
+  // --- CONFIGURAÇÕES GLOBAIS DOS GRÁFICOS DE ANÁLISE ---
+  const commonOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 0 },
+    plugins: { 
+      legend: { position: 'bottom' },
+      tooltip: {
+        callbacks: {
+          title: (tooltipItems) => {
+            return formatRelativeTime(tooltipItems[0].label);
           }
         }
       }
-    };
+    }
+  };
 
-    const timeSeriesOptions = {
-      ...commonOptions,
-      scales: {
-        x: {
-          type: 'time',
-          time: {
-            unit: 'second',
-            displayFormats: { second: 'HH:mm:ss' },
-            tooltipFormat: 'HH:mm:ss'
-          },
-          title: { display: true, text: 'Tempo' },
-          ticks: {
-            source: 'data',
-            maxRotation: 0,
-            autoSkip: true,
-            callback: function(value, index, values) {
-              return formatRelativeTime(value);
-            }
-          }
+  const timeSeriesOptions = {
+    ...commonOptions,
+    scales: {
+      x: {
+        type: 'time',
+        time: {
+          unit: 'second',
+          displayFormats: { second: 'HH:mm:ss' },
+          tooltipFormat: 'HH:mm:ss'
         },
-        y: { title: { display: true } }
-      }
-    };
+        title: { display: true, text: 'Tempo' },
+        ticks: {
+          source: 'data',
+          maxRotation: 0,
+          autoSkip: true,
+          callback: function(value, index, values) {
+            return formatRelativeTime(value);
+          }
+        }
+      },
+      y: { title: { display: true } }
+    }
+  };
 
-    const yAxisLimits = {
-      ppgChart: { min: -150, max: 200, title: 'Amplitude Filtrada' },
-      respirationChart: { min: -100, max: 300, title: 'Amplitude Modulada' },
-      soundChart: { min: 0, max: 4000, title: 'Amplitude do ADC' },
-      motionChart: { min: 0, max: 60, title: 'Magnitude (Acel. e RotaÃ§Ã£o)' },
-      piezoChart: { min: 0, max: 5000, title: 'Amplitude do Sinal' }
-    };
+  const yAxisLimits = {
+    ppgChart: { min: -150, max: 200, title: 'Amplitude Filtrada' },
+    respirationChart: { min: -100, max: 300, title: 'Amplitude Modulada' },
+    soundChart: { min: 0, max: 4000, title: 'Amplitude do ADC' },
+    motionChart: { min: 0, max: 60, title: 'Magnitude (Acel. e Rotação)' },
+    piezoChart: { min: 0, max: 2000, title: 'Amplitude do Sinal' }
+  };
+  // --- FIM DAS CONFIGURAÇÕES GLOBAIS ---
 
-    // 1. PPG Chart
+
+  /**
+   * Renders all analysis charts with improved time axis and fixed Y-axis limits.
+   * Esta função foi dividida em funções menores (renderPPGChart, etc.)
+   */
+
+  // 1. PPG Chart
+  function renderPPGChart(chartData) {
     if (chartData.ppg?.signal?.length > 1) {
       const ppgConfig = {
         type: 'line',
@@ -291,15 +408,17 @@ function createOrUpdateChart(chartId, config) {
     } else {
       showNoDataMessage('ppgChart');
     }
+  }
 
-    // 2. Respiration Chart
+  // 2. Respiration Chart
+  function renderRespirationChart(chartData) {
     if (chartData.respiration?.signal?.length > 1) {
       const respConfig = {
         type: 'line',
         data: {
           datasets: [
-            { label: 'Sinal RespiratÃ³rio Derivado', data: chartData.respiration.signal, borderColor: '#2196F3', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
-            { type: 'scatter', label: 'Picos RespiratÃ³rios', data: chartData.respiration.peaks, backgroundColor: '#1976D2', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: 'Sinal Respiratório Derivado', data: chartData.respiration.signal, borderColor: '#2196F3', borderWidth: 1.5, pointRadius: 0, tension: 0.1 },
+            { type: 'scatter', label: 'Picos Respiratórios', data: chartData.respiration.peaks, backgroundColor: '#1976D2', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
           ]
         },
         options: {
@@ -318,8 +437,10 @@ function createOrUpdateChart(chartId, config) {
     } else {
       showNoDataMessage('respirationChart');
     }
-
-    // 3. Sound Chart
+  }
+  
+  // 3. Sound Chart
+  function renderSoundChart(chartData) {
     if (chartData.sound?.signal?.length > 1) {
       const soundConfig = {
         type: 'line',
@@ -347,16 +468,18 @@ function createOrUpdateChart(chartId, config) {
     } else {
       showNoDataMessage('soundChart');
     }
+  }
 
-    // 4. Motion Chart
+  // 4. Motion Chart
+  function renderMotionChart(chartData) {
     if (chartData.motion?.signal?.length > 1) {
       const motionConfig = {
         type: 'line',
         data: {
           datasets: [
             { label: 'Intensidade do Movimento (Acel.)', data: chartData.motion.signal, borderColor: '#6a5acd', backgroundColor: 'rgba(106, 90, 205, 0.1)', fill: true, borderWidth: 2, pointRadius: 0, tension: 0.3 },
-            { label: 'Intensidade da RotaÃ§Ã£o (Giro.)', data: chartData.motion.rotation_signal, borderColor: '#00a896', fill: false, borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
-            { label: 'Limiar de DetecÃ§Ã£o de Tosse', data: chartData.motion.signal.map(p => ({ x: p.x, y: chartData.motion.threshold })), borderColor: '#aaaaaa', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
+            { label: 'Intensidade da Rotação (Giro.)', data: chartData.motion.rotation_signal, borderColor: '#00a896', fill: false, borderWidth: 1.5, pointRadius: 0, tension: 0.3 },
+            { label: 'Limiar de Detecção de Tosse', data: chartData.motion.signal.map(p => ({ x: p.x, y: chartData.motion.threshold })), borderColor: '#aaaaaa', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
             { type: 'scatter', label: 'Picos de Tosse / Mov. Brusco', data: chartData.motion.peaks, backgroundColor: '#dc3545', pointStyle: 'crossRot', radius: 7, borderWidth: 2 }
           ]
         },
@@ -377,16 +500,18 @@ function createOrUpdateChart(chartId, config) {
     } else {
       showNoDataMessage('motionChart');
     }
+  }
 
-    // 5. Piezo Chart
+  // 5. Piezo Chart
+  function renderPiezoChart(chartData) {
     if (chartData.piezo?.signal?.length > 1) {
       const piezoConfig = {
         type: 'line',
         data: {
           datasets: [
-            { label: 'Sinal Piezo (Mov. TorÃ¡cico)', data: chartData.piezo.signal, borderColor: '#FF9800', borderWidth: 1.5, pointRadius: 0 },
-            { label: 'Limiar de VibraÃ§Ã£o', data: chartData.piezo.signal.map(p => ({ x: p.x, y: chartData.piezo.threshold })), borderColor: '#F44336', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
-            { type: 'scatter', label: 'Picos de VibraÃ§Ã£o', data: chartData.piezo.peaks, backgroundColor: '#EF6C00', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
+            { label: 'Sinal Piezo (Mov. Torácico)', data: chartData.piezo.signal, borderColor: '#FF9800', borderWidth: 1.5, pointRadius: 0 },
+            { label: 'Limiar de Vibração', data: chartData.piezo.signal.map(p => ({ x: p.x, y: chartData.piezo.threshold })), borderColor: '#F44336', borderWidth: 2, borderDash: [5, 5], pointRadius: 0 },
+            { type: 'scatter', label: 'Picos de Vibração', data: chartData.piezo.peaks, backgroundColor: '#EF6C00', pointStyle: 'crossRot', radius: 6, borderWidth: 2 }
           ]
         },
         options: { 
@@ -407,6 +532,44 @@ function createOrUpdateChart(chartId, config) {
       showNoDataMessage('piezoChart');
     }
   }
+  
+  /**
+   * Atualiza seletivamente os gráficos de análise "live"
+   */
+  function updateLiveCharts(analysisData) {
+    const container = document.querySelector('.insights-container');
+    if (!container || !analysisData || !analysisData.charts) {
+      // Se não há dados, limpa todos os gráficos de análise
+      renderPPGChart({});
+      renderRespirationChart({});
+      renderSoundChart({});
+      renderMotionChart({});
+      renderPiezoChart({});
+      return;
+    }
+    
+    const chartData = analysisData.charts;
+
+  if (container.querySelector('.chart-toggle[data-chart-id="ppgChart"] .toggle-btn[data-mode="live"].active')) {
+    renderPPGChart(chartData);
+  }
+  if (container.querySelector('.chart-toggle[data-chart-id="soundChart"] .toggle-btn[data-mode="live"].active')) {
+    renderSoundChart(chartData);
+  }
+  if (container.querySelector('.chart-toggle[data-chart-id="motionChart"] .toggle-btn[data-mode="live"].active')) {
+    renderMotionChart(chartData);
+  }
+  // Piezo: só quando não estiver no loop "live" dedicado
+  if (!isPiezoLiveLoopOn &&
+      container.querySelector('.chart-toggle[data-chart-id="piezoChart"] .toggle-btn[data-mode="live"].active')) {
+    renderPiezoChart(chartData);
+  }
+  // Respiração é sempre live (se quiser toggle, pode incluir no HTML e seguir o mesmo padrão)
+
+    // Respiração não tem toggle, está sempre 'live'
+    renderRespirationChart(chartData);
+  }
+
 
   // 6. Weekly Cough Chart
   function renderWeeklyCoughChart(chartData) {
@@ -440,7 +603,7 @@ function createOrUpdateChart(chartId, config) {
     const triggersEl = document.getElementById('currentTriggers');
     if (!triggersEl) return;
     triggersEl.innerHTML = '';
-    const list = triggers && triggers.length ? triggers : ['Nenhum gatilho crí­tico no momento.'];
+    const list = triggers && triggers.length ? triggers : ['Nenhum gatilho crítico no momento.'];
     list.forEach(txt => {
       const li = document.createElement('li');
       li.textContent = txt;
@@ -448,6 +611,357 @@ function createOrUpdateChart(chartId, config) {
     });
   }
 
+  // --- LÓGICA DE DADOS HISTÓRICOS ---
+  
+async function loadHistoricalData(chartId, sensorName, hours = 1) {
+  const canvas = document.getElementById(chartId);
+  if (!canvas) return;
+
+  // Atualiza o texto do botão
+  const button = document.querySelector(`.chart-toggle[data-chart-id="${chartId}"] .toggle-btn[data-mode="24h"]`);
+  if (button) button.textContent = hours === 1 ? "Última 1h" : `Últimas ${hours}h`;
+
+  showNoDataMessage(chartId, 'Carregando dados históricos...');
+
+  try {
+    const resp = await fetch(`/api/historical_data?sensor=${sensorName}&hours=${hours}`);
+    if (!resp.ok) {
+      let msg = `HTTP ${resp.status}`;
+      try { const j = await resp.json(); if (j?.error) msg = j.error; } catch {}
+      throw new Error(msg);
+    }
+    const result = await resp.json();
+
+    if (!result.points || !result.points.length) {
+      showNoDataMessage(chartId, 'Sem dados históricos para este período.');
+      return;
+    }
+
+    // ✨ Sanitiza (remove NaN/undef → null) e normaliza chaves
+    const cleaned = sanitizePoints(result.points);
+    if (!cleaned.length) {
+      showNoDataMessage(chartId, 'Sem dados válidos para exibir.');
+      return;
+    }
+
+    // Título do eixo Y padronizado a partir do mapa já existente
+    const yTitle = yAxisLimits[chartId]?.title || 'Valor';
+    // Label amigável (ex.: "Som", "Piezo", "Aceleração")
+    const sensorLabel = (yAxisLimits[chartId]?.title.split('(')[0] || sensorName || 'Sinal').trim();
+
+    const historicalConfig = {
+      type: 'line',
+      data: { datasets: [{
+        label: `${sensorLabel} (Média ${hours}h)`,
+        data: cleaned,
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1,
+        spanGaps: true
+      }]},
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: {
+            type: 'time',
+            time: { tooltipFormat: 'dd/MM/yy HH:mm' },
+            title: { display: true, text: 'Tempo' },
+            ticks: { maxRotation: 0, autoSkip: true }
+          },
+          y: { title: { display: true, text: yTitle } }
+        },
+        plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } }
+      }
+    };
+    createOrUpdateChart(chartId, historicalConfig);
+
+  } catch (err) {
+    console.error(`Erro ao carregar dados históricos para ${chartId}:`, err);
+    showNoDataMessage(chartId, `Falha: ${err.message}`);
+  }
+}
+
+  /**
+   * Configura os botões de toggle para os gráficos de análise
+   */
+  function setupToggleButtons() {
+    const toggles = document.querySelectorAll('.chart-toggle');
+    
+    toggles.forEach(toggle => {
+      const chartId = toggle.dataset.chartId;
+      const sensorName = toggle.dataset.sensorName;
+      
+      // Ignora o chart-toggle do MPU que terá lógica própria
+      if (chartId === 'realtimeMotionChart') return;
+
+      const buttons = toggle.querySelectorAll('.toggle-btn');
+      
+      buttons.forEach(button => {
+        button.addEventListener('click', () => {
+          buttons.forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+
+          const mode = button.dataset.mode;
+
+          if (chartId === 'piezoChart') {
+            if (mode === 'live') {
+              stopPiezoUpdates();
+              startPiezoUpdates();          // ✅ piezo “ao vivo” fluido (1Hz)
+            } else if (mode === '24h') {    // seu botão chama “24 Horas”, mas carregamos 1h por padrão
+              stopPiezoUpdates();
+              loadHistoricalData('piezoChart', 'piezo', 1);
+            }
+            return; // evita cair na lógica genérica
+          }
+
+          if (chartId === 'motionChart') {
+            if (mode === 'live') {
+              // re-render live com dados recentes
+              if (lastAnalysisData && lastAnalysisData.analysis) {
+                renderMotionChart(lastAnalysisData.analysis.charts);
+              } else {
+                showNoDataMessage(chartId, 'Aguardando dados recentes...');
+              }
+            } else if (mode === '24h') {
+              // aqui usamos o novo endpoint combinado (acc + gyro)
+              loadMotionHistory(60);
+            }
+            return; // evita cair na lógica genérica
+          }
+
+          if (mode === 'live') {
+            // Re-renderiza o gráfico 'live' com os últimos dados
+            if (lastAnalysisData && lastAnalysisData.analysis) {
+              const chartData = lastAnalysisData.analysis.charts;
+              // Chama a função de renderização específica
+              if(chartId === 'ppgChart') renderPPGChart(chartData);
+              else if(chartId === 'soundChart') renderSoundChart(chartData);
+              else if(chartId === 'motionChart') renderMotionChart(chartData);
+              else if(chartId === 'piezoChart') renderPiezoChart(chartData);
+            } else {
+              showNoDataMessage(chartId, 'Aguardando dados recentes...');
+            }
+            
+          } else if (mode === '24h') { // O HTML usa '24h', mas vamos carregar 1h
+            loadHistoricalData(chartId, sensorName, 1);
+          }
+        });
+      });
+    });
+  }
+
+
+  // --- LÓGICA DO GRÁFICO MPU6050 ---
+  let mpuUpdateInterval = null;
+  const MPU_MAX_DATA_POINTS = 100; // Últimos 100 pontos
+
+  function initMPUChart() {
+    const canvas = document.getElementById('realtimeMotionChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    const config = {
+      type: 'line',
+      data: {
+        labels: [], // Timestamps
+        datasets: [
+          { label: 'Accel X', data: [], borderColor: '#FF6384', tension: 0.1, pointRadius: 0 },
+          { label: 'Accel Y', data: [], borderColor: '#36A2EB', tension: 0.1, pointRadius: 0 },
+          { label: 'Accel Z', data: [], borderColor: '#4BC0C0', tension: 0.1, pointRadius: 0 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: { type: 'time', time: { unit: 'second', displayFormats: { second: 'HH:mm:ss' } }, ticks: { maxRotation: 0, autoSkip: true } },
+          y: { title: { display: true, text: 'Aceleração (m/s^2)' }, min: -20, max: 20 } // Limite fixo
+        },
+        animation: false // Desativa animação para fluidez
+      }
+    };
+    createOrUpdateChart('realtimeMotionChart', config);
+  }
+
+  async function fetchMPULatest() {
+    const mpuChart = charts['realtimeMotionChart'];
+    if (!mpuChart) return;
+
+    try {
+      const res = await fetch('/api/mpu6050_latest');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      const now = new Date(data.timestamp);
+      mpuChart.data.labels.push(now);
+      mpuChart.data.datasets[0].data.push(data.accel_x);
+      mpuChart.data.datasets[1].data.push(data.accel_y);
+      mpuChart.data.datasets[2].data.push(data.accel_z);
+
+      while (mpuChart.data.labels.length > MPU_MAX_DATA_POINTS) {
+        mpuChart.data.labels.shift();
+        mpuChart.data.datasets.forEach(ds => ds.data.shift());
+      }
+      mpuChart.update('none');
+
+      // Atualiza o indicador de estado
+      const stateEl = document.getElementById('userStateText');
+      if (stateEl) {
+        const states = ['Parado', 'Andando', 'Corrida Leve', 'Corrida Rápida', 'Queda Detectada'];
+        const stateIndex = parseInt(data.state, 10);
+        stateEl.textContent = `Estado: ${states[stateIndex] || 'Indefinido'}`;
+      }
+
+    } catch (e) {
+      console.error("Falha ao buscar dados do MPU:", e);
+      const stateEl = document.getElementById('userStateText');
+      if (stateEl) stateEl.textContent = 'Estado: Desconectado';
+      stopMPUUpdates(); // Para o loop se houver erro
+    }
+  }
+
+  async function loadMPUHistory(minutes) {
+    const canvas = document.getElementById('realtimeMotionChart');
+    if (!canvas) return;
+    showNoDataMessage('realtimeMotionChart', 'Carregando histórico MPU...');
+
+    try {
+      const res = await fetch(`/api/mpu6050_history?minutes=${minutes}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      
+      if (!data.points || data.points.length === 0) {
+        showNoDataMessage('realtimeMotionChart', 'Sem dados históricos para este período.');
+        return;
+      }
+
+      const config = {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Accel X (Média)', data: data.points.map(p => ({ x: p.t, y: p.ax })), borderColor: '#FF6384', tension: 0.1, pointRadius: 0, spanGaps: true },
+            { label: 'Accel Y (Média)', data: data.points.map(p => ({ x: p.t, y: p.ay })), borderColor: '#36A2EB', tension: 0.1, pointRadius: 0, spanGaps: true },
+            { label: 'Accel Z (Média)', data: data.points.map(p => ({ x: p.t, y: p.az })), borderColor: '#4BC0C0', tension: 0.1, pointRadius: 0, spanGaps: true }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { type: 'time', time: { tooltipFormat: 'dd/MM HH:mm' }, title: { display: true, text: 'Tempo' } },
+            y: { title: { display: true, text: 'Aceleração Média (m/s^2)' } }
+          },
+          plugins: { tooltip: { mode: 'index', intersect: false } }
+        }
+      };
+      createOrUpdateChart('realtimeMotionChart', config);
+    } catch (e) {
+      console.error("Falha ao carregar histórico MPU:", e);
+      showNoDataMessage('realtimeMotionChart', `Falha: ${e.message}`);
+    }
+  }
+
+  async function loadMotionHistory(minutes = 60) {
+  const chartId = 'motionChart';
+  showNoDataMessage(chartId, 'Carregando histórico de movimento...');
+
+  try {
+    const res = await fetch(`/api/motion_history?minutes=${minutes}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (!data.points || !data.points.length) {
+      showNoDataMessage(chartId, 'Sem dados históricos nesse período.');
+      return;
+    }
+
+    const dsAcc = data.points.map(p => ({ x: p.t, y: Number(p.acc) }));
+    const dsGyro = data.points.map(p => ({ x: p.t, y: Number(p.gyro) }));
+
+    const cfg = {
+      type: 'line',
+      data: {
+        datasets: [
+          { label: 'Intensidade do Movimento (Acel.)', data: dsAcc, borderColor: '#6a5acd', backgroundColor: 'rgba(106,90,205,0.12)', fill: true, pointRadius: 0, tension: 0.25, spanGaps: true },
+          { label: 'Intensidade da Rotação (Giro.)', data: dsGyro, borderColor: '#00a896', pointRadius: 0, tension: 0.25, spanGaps: true }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: { type: 'time', time: { tooltipFormat: 'dd/MM HH:mm' }, title: { display: true, text: 'Tempo' }, ticks: { maxRotation: 0, autoSkip: true } },
+          y: { title: { display: true, text: 'Magnitude (Acel. e Rotação)' } }
+        },
+        plugins: { tooltip: { mode: 'index', intersect: false }, legend: { position: 'bottom' } }
+      }
+    };
+    createOrUpdateChart(chartId, cfg);
+  } catch (e) {
+    console.error('Erro ao carregar histórico de movimento:', e);
+    showNoDataMessage(chartId, `Falha: ${e.message}`);
+  }
+}
+
+
+  function startMPUUpdates() {
+    if (mpuUpdateInterval) clearInterval(mpuUpdateInterval);
+    
+    initMPUChart(); // Inicializa o gráfico limpo
+    fetchMPULatest(); // Busca o primeiro ponto
+    // O .ino envia a 1Hz (1000ms)
+    mpuUpdateInterval = setInterval(fetchMPULatest, 1000); 
+    document.getElementById('userStateIndicator').style.display = 'block';
+  }
+
+  function stopMPUUpdates() {
+    if (mpuUpdateInterval) clearInterval(mpuUpdateInterval);
+    mpuUpdateInterval = null;
+    document.getElementById('userStateIndicator').style.display = 'none';
+  }
+
+  function setupMPUToggle() {
+    const toggle = document.querySelector('.chart-toggle[data-chart-id="realtimeMotionChart"]');
+    if (!toggle) return;
+    
+    const buttons = toggle.querySelectorAll('.toggle-btn');
+    const select = document.getElementById('mpuRangeSelect');
+
+    buttons.forEach(button => {
+      button.addEventListener('click', () => {
+        buttons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        const mode = button.dataset.mode;
+
+        if (mode === 'live') {
+          select.style.display = 'none';
+          stopMPUUpdates();
+          startMPUUpdates();
+        } else if (mode === 'history') {
+          select.style.display = 'inline-block';
+          stopMPUUpdates();
+          loadMPUHistory(select.value);
+        }
+      });
+    });
+
+    select.addEventListener('change', () => {
+      if (toggle.querySelector('.toggle-btn[data-mode="history"].active')) {
+        stopMPUUpdates();
+        loadMPUHistory(select.value);
+      }
+    });
+    
+    // Inicia no modo 'live' por padrão
+    startMPUUpdates();
+  }
+
+
+  // --- LÓGICA DO CALENDÁRIO ---
+  
   function handleDateClick(info) {
     const date = info.dateStr;
     const existing = calendar.getEvents().filter(e => e.startStr === date);
@@ -487,6 +1001,8 @@ function createOrUpdateChart(chartId, config) {
     calendar.render();
   }
 
+  // --- FUNÇÃO PRINCIPAL DE CARREGAMENTO DE DADOS ---
+
   function loadData() {
     if (isLoadingData) {
       console.log('Aguardando a requisicao anterior...');
@@ -500,7 +1016,9 @@ function createOrUpdateChart(chartId, config) {
         return response.json();
       })
       .then(data => {
+        lastAnalysisData = data.env_data; // Salva os dados mais recentes
         const envData = data.env_data;
+
         if (data.error) {
           console.error('Erro nos dados recebidos do servidor:', data.error);
           updateTriggers([`Erro ao processar dados: ${data.error}`]);
@@ -509,7 +1027,12 @@ function createOrUpdateChart(chartId, config) {
         if (envData && !envData.error) {
           updateResults(envData.analysis.results);
           updateTriggers(envData.triggers);
-          renderAnalysisCharts(envData.analysis);
+          updatePerfGauge(envData.pefr_prediction); // Atualiza o PERF
+          
+          // Atualiza seletivamente os gráficos "live"
+          updateLiveCharts(envData.analysis); 
+          
+          // Gráfico de tosse é sempre atualizado
           renderWeeklyCoughChart(envData.weekly_cough_data);
 
           const timestampEl = document.getElementById('lastUpdated');
@@ -518,9 +1041,11 @@ function createOrUpdateChart(chartId, config) {
             timestampEl.textContent = `Ultima atualizacao: ${formatted}`;
           }
         } else {
+          // Lida com erros ou dados vazios
           updateResults({ 'batimentos-cardiacos': 0, 'saturacao': 0, 'temperatura-corporal': 0, 'som': 0 });
-          renderAnalysisCharts(null);
+          updateLiveCharts(null); // Limpa gráficos de análise
           renderWeeklyCoughChart(null);
+          updatePerfGauge(null); // Limpa PERF
           if (!data.error) {
             updateTriggers([envData?.error || 'Dados ambientais indisponiveis no momento.']);
           }
@@ -536,31 +1061,65 @@ function createOrUpdateChart(chartId, config) {
       })
       .catch(error => {
         console.error('Falha ao carregar dados:', error);
-        const allChartIds = Object.keys(charts);
-        allChartIds.forEach(showNoDataMessage);
+        // Limpa todos os gráficos em caso de falha de conexão
+        Object.keys(charts).forEach(key => {
+            if(key !== 'realtimeMotionChart') showNoDataMessage(key, 'Erro de conexão');
+        });
         updateTriggers([`Erro de conexao: ${error.message}`]);
+        updatePerfGauge(null);
       })
       .finally(() => {
         isLoadingData = false;
       });
   }
-  // Aplica layout de grade aos grÃ¡ficos
-  try {
-    const chartsContainer = document.querySelector('.charts-container');
-    if (chartsContainer) {
-      chartsContainer.style.display = 'grid';
-      chartsContainer.style.gridTemplateColumns = '1fr 1fr';
-      chartsContainer.style.gap = '20px';
-    }
-  } catch (e) {
-    console.error("Falha ao tentar aplicar o layout de grade aos grÃ¡ficos.", e);
+  
+  // --- INICIALIZAÇÃO DA PÁGINA ---
+
+  // Renderiza os gráficos 'live' iniciais com os dados embutidos na página
+  if (window.env_data && window.env_data.analysis && window.env_data.analysis.charts) {
+    const initialChartData = window.env_data.analysis.charts;
+    renderPPGChart(initialChartData);
+    renderRespirationChart(initialChartData);
+    renderSoundChart(initialChartData);
+    renderMotionChart(initialChartData);
+    renderPiezoChart(initialChartData);
+  } else {
+    // Mostra mensagem se não houver dados iniciais
+    ['ppgChart', 'respirationChart', 'soundChart', 'motionChart', 'piezoChart'].forEach(id => showNoDataMessage(id));
+  }
+  
+  // Renderiza gráfico de tosse inicial
+  if(window.env_data && window.env_data.weekly_cough_data) {
+    renderWeeklyCoughChart(window.env_data.weekly_cough_data);
+  } else {
+    showNoDataMessage('weeklyCoughChart');
   }
 
-  // Inicia o carregamento de dados e define a atualizaÃ§Ã£o periÃ³dica
-  loadData();
-  setInterval(loadData, 2000);
+  // Inicializa o medidor PERF com dados embutidos
+  updatePerfGauge(window.env_data ? window.env_data.pefr_prediction : null);
 
-  // LÃ³gica da seÃ§Ã£o de grÃ¡ficos recolhÃ­vel
+  // Inicializa o calendário com dados embutidos
+  initializeCalendar(window.usage_events || []);
+  
+  // Configura os botões de toggle (Live/Histórico)
+  setupToggleButtons();
+  
+  // Configura o gráfico MPU (Live/Histórico)
+  setupMPUToggle();
+
+    // Piezo inicia em "live" por padrão para ficar igual ao MPU
+  const piezoLiveBtn = document.querySelector('.chart-toggle[data-chart-id="piezoChart"] .toggle-btn[data-mode="live"]');
+  if (piezoLiveBtn) {
+    piezoLiveBtn.classList.add('active');
+    startPiezoUpdates();
+  }
+
+
+  // Inicia o loop de atualização principal (que agora atualiza PERF, cards e gráficos 'live')
+  loadData(); // Carga imediata
+  setInterval(loadData, 2000); // Atualiza a cada 2 segundos
+
+  // Lógica da seção de gráficos recolhível (sem alterações)
   const chartsSection = document.querySelector('.charts-section');
   const toggleBtn = document.querySelector('.toggle-charts-btn');
   const header = document.querySelector('.charts-header');
@@ -576,5 +1135,16 @@ function createOrUpdateChart(chartId, config) {
       toggleCharts(e);
     }
   });
-});
 
+  // Aplica layout de grade (sem alterações)
+  try {
+    const chartsContainer = document.querySelector('.charts-container');
+    if (chartsContainer) {
+      chartsContainer.style.display = 'grid';
+      chartsContainer.style.gridTemplateColumns = '1fr 1fr';
+      chartsContainer.style.gap = '20px';
+    }
+  } catch (e) {
+    console.error("Falha ao tentar aplicar o layout de grade aos gráficos.", e);
+  }
+});

@@ -57,31 +57,84 @@
         <ul id="currentTriggers">
           </ul>
 
-      <h3>Gráficos da Análise de Sinais</h3>
+<h3>Gráficos da Análise de Sinais</h3>
         <div class="insights-container charts-grid">
+            
             <div class="card">
-                <h3>Sinal PPG e Batimentos Cardíacos</h3>
+                <div class="chart-header-controls">
+                    <h3>Sinal PPG e Batimentos Cardíacos</h3>
+                    <div class="chart-toggle" data-chart-id="ppgChart" data-sensor-name="batimentos-cardiacos">
+                        <button class="toggle-btn active" data-mode="live">Análise Recente</button>
+                        <button class="toggle-btn" data-mode="24h">Última 1h</button>
+                    </div>
+                </div>
                 <canvas id="ppgChart"></canvas>
             </div>
+            
             <div class="card">
                 <h3>Sinal Respiratório</h3>
                 <canvas id="respirationChart"></canvas>
             </div>
+
             <div class="card">
-                <h3>Análise de Som (Microfone)</h3>
+                <div class="chart-header-controls">
+                    <h3>Análise de Som (Microfone)</h3>
+                    <div class="chart-toggle" data-chart-id="soundChart" data-sensor-name="som">
+                        <button class="toggle-btn active" data-mode="live">Análise Recente</button>
+                        <button class="toggle-btn" data-mode="24h">Última 1h</button>
+                    </div>
+                </div>
                 <canvas id="soundChart"></canvas>
             </div>
+
             <div class="card">
-                <h3>Análise de Movimento (Acelerômetro)</h3>
+                <div class="chart-header-controls">
+                    <h3>Análise de Movimento (Acelerômetro)</h3>
+                    <div class="chart-toggle" data-chart-id="motionChart" data-sensor-name="acelerometro-z">
+                        <button class="toggle-btn active" data-mode="live">Análise Recente</button>
+                        <button class="toggle-btn" data-mode="24h">Última 1h</button>
+                    </div>
+                </div>
                 <canvas id="motionChart"></canvas>
             </div>
+
             <div class="card">
                 <h3>Tosse por Dia da Semana</h3>
                 <canvas id="weeklyCoughChart"></canvas>
             </div>
+
             <div class="card">
-                <h3>Sinal Piezoelétrico (Movimento Torácico)</h3>
+                <div class="chart-header-controls">
+                    <h3>Sinal Piezoelétrico (Mov. Torácico)</h3>
+                    <div class="chart-toggle" data-chart-id="piezoChart" data-sensor-name="piezo">
+                        <button class="toggle-btn active" data-mode="live">Análise Recente</button>
+                        <button class="toggle-btn" data-mode="24h">Última 1h</button>
+                    </div>
+                </div>
                 <canvas id="piezoChart"></canvas>
+            </div>
+
+            <div class="card">
+              <div class="chart-header-controls">
+                  <h3>Monitoramento de Movimento (MPU6050)</h3>
+                  <div id="userStateIndicator" class="state-indicator">
+                      <span id="userStateText">Estado: Carregando...</span>
+                  </div>
+                  <div class="chart-toggle" data-chart-id="realtimeMotionChart" data-sensor-name="acelerometro-z">
+                      <button class="toggle-btn active" data-mode="live">Monitoramento ao Vivo</button>
+                      <button class="toggle-btn" data-mode="history">Seletor</button>
+                      <select id="mpuRangeSelect" style="margin-left:.5rem; display:none">
+                      <option value="30">30 min</option>
+                      <option value="60">1 hora</option>
+                      <option value="180" selected>3 horas</option>
+                      <option value="360">6 horas</option>
+                      <option value="720">12 horas</option>
+                      <option value="1440">24 horas</option>
+                    </select>
+
+                  </div>
+              </div>
+              <canvas id="realtimeMotionChart"></canvas>
             </div>
 
         </div>
@@ -144,7 +197,5 @@
   </script>
 
   <script src="{{ url_for('static', filename='js/insights.js') }}"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 </body>
 </html>
