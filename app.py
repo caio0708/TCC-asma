@@ -16,7 +16,7 @@ from routes.configuracoes import configuracoes_bp
 # ===== MÓDULOS DE BACKGROUND =====
 from routes.max30102_MQTT import iniciar_monitor_sensores
 from routes.cough_detector import iniciar_detector_tosse
-from routes.sensores import salvar_dados_db, atualizar_dados_api_externa
+from routes.sensores import salvar_dados_db, atualizar_dados_api_externa, get_today_cough_count_from_db
 
 # =============================================================================
 # ESTADO GLOBAL E CENTRALIZADO DA APLICAÇÃO
@@ -28,7 +28,7 @@ app_state = {
     'qualidade-ar-o3': 0, 'qualidade-ar-no2': 0, 'qualidade-ar-so2': 0,
     'piezo': 0, 'contagem-tosse': 0, 'som': 0, 'umidade': 0,
     'acelerometro-x': 0, 'acelerometro-y': 0, 'acelerometro-z': 0,
-    'giroscopio-x': 0, 'giroscopio-y': 0, 'giroscopio-z': 0,
+    'giroscopio-x': 0, 'giroscopio-y': 0, 'giroscopio-z': 0, 'mpu_state': 0,
     'spo2': 0, 'bpm': 0, 
     'connected': False, 'coughs_total': 0
 }
@@ -193,11 +193,10 @@ def run_async_in_thread(async_func, *args):
 def on_cough_detected():
     """Callback para quando uma tosse é detectada."""
     with state_lock:
-        app_state['coughs_total'] += 1
-        app_state['contagem-tosse'] = app_state['coughs_total']
-        print(f"[App] Tosse registrada! Total na sessão: {app_state['coughs_total']}")
+        app_state['contagem-tosse'] += 1
+        print(f"[App] Tosse registrada! Total no dia: {app_state['contagem-tosse']}")
     if mqtt_client:
-        mqtt_client.publish(f"sensorestcc/contagem-tosse", str(app_state['coughs_total']))
+        mqtt_client.publish(f"sensorestcc/contagem-tosse", str(app_state['contagem-tosse']))
 
 # =============================================================================
 # CONFIGURAÇÃO DA APLICAÇÃO FLASK
@@ -225,6 +224,12 @@ app.register_blueprint(configuracoes_bp)
 # =============================================================================
 if __name__ == '__main__':
     print("[App] Iniciando processos de background...")
+
+    # --- CORREÇÃO: Inicializa a contagem de tosse com o valor do dia atual ---
+    print("[App] Sincronizando contagem de tosse diária do banco de dados...")
+    initial_cough_count = get_today_cough_count_from_db()
+    app_state['contagem-tosse'] = initial_cough_count
+    print(f"[App] Contagem de tosse inicial para hoje: {initial_cough_count}")
 
     # --- Thread do monitor de sensores ---
     sensor_thread = threading.Thread(

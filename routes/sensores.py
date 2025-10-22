@@ -153,15 +153,8 @@ def salvar_dados_db(app_state, state_lock):
             with state_lock:
                 current_state = app_state.copy()
 
-            # Pega o total de tosses do dia no DB para consistência
-            db_cough_count = get_today_cough_count_from_db()
-            session_cough_count = current_state.get('coughs_total', 0)
-            
-            # <<< LÓGICA DE TOSSE SIMPLIFICADA >>>
-            # O valor a ser salvo é o máximo entre o que já está no banco para hoje
-            # e o que foi contado nesta sessão.
-            final_cough_count = max(db_cough_count, session_cough_count)
-            current_state['contagem-tosse'] = final_cough_count
+            # <<< LÓGICA DE TOSSE CORRIGIDA >>>
+            # O app_state['contagem-tosse'] já é a fonte da verdade, inicializado com o valor do DB.
 
             # <<< ALTERADO: Monta a lista de valores a partir do estado central >>>
             valores_para_salvar = [

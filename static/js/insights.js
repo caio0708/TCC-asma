@@ -1,17 +1,20 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Inicializa um objeto para manter as instâncias dos gráficos
   let calendar;
+  // Objeto para armazenar instâncias de gráficos e seus loops de atualização
   const charts = {
     ppgChart: null,
     respirationChart: null,
     soundChart: null,
     motionChart: null,
     piezoChart: null,
-    weeklyCoughChart: null,
-    realtimeMotionChart: null // Adicionado para o gráfico MPU
+    weeklyCoughChart: null
   };
+  const chartIntervals = {
+    ppgChart: null, soundChart: null, motionChart: null, piezoChart: null
+  };
+
   let isLoadingData = false; // Variavel de controle para evitar race conditions
-  let lastAnalysisData = null; // Armazena os últimos dados da análise "live"
 
   // Controle do modo "live dedicado" do Piezo
 let piezoUpdateInterval = null;
@@ -375,6 +378,50 @@ function stopPiezoUpdates() {
   // --- FIM DAS CONFIGURAÇÕES GLOBAIS ---
 
 
+  // --- LÓGICA DE ATUALIZAÇÃO "LIVE" DEDICADA (NOVO) ---
+  const LIVE_UPDATE_INTERVAL_MS = 1000; // 1 segundo
+  const LIVE_MAX_DATA_POINTS = 100;
+
+  async function fetchAndUpdateLiveChart(chartId, sensorName) {
+    const chart = charts[chartId];
+    if (!chart) return;
+
+    try {
+      const res = await fetch(`/api/latest_analysis_point?sensor=${sensorName}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (data.x && data.y !== null) {
+        const timestamp = new Date(data.x);
+        chart.data.labels.push(timestamp);
+        chart.data.datasets[0].data.push(data.y);
+
+        // Mantém o número de pontos no gráfico
+        while (chart.data.labels.length > LIVE_MAX_DATA_POINTS) {
+          chart.data.labels.shift();
+          chart.data.datasets[0].data.shift();
+        }
+        chart.update('none');
+      }
+    } catch (e) {
+      console.error(`Falha ao buscar dados live para ${chartId}:`, e);
+      stopLiveChartUpdate(chartId); // Para o loop em caso de erro
+    }
+  }
+
+  function startLiveChartUpdate(chartId, sensorName) {
+    stopLiveChartUpdate(chartId); // Garante que não haja loops duplicados
+    // Busca e atualiza imediatamente, depois inicia o intervalo
+    fetchAndUpdateLiveChart(chartId, sensorName);
+    chartIntervals[chartId] = setInterval(() => fetchAndUpdateLiveChart(chartId, sensorName), LIVE_UPDATE_INTERVAL_MS);
+  }
+
+  function stopLiveChartUpdate(chartId) {
+    if (chartIntervals[chartId]) {
+      clearInterval(chartIntervals[chartId]);
+      chartIntervals[chartId] = null;
+    }
+  }
   /**
    * Renders all analysis charts with improved time axis and fixed Y-axis limits.
    * Esta função foi dividida em funções menores (renderPPGChart, etc.)
@@ -382,7 +429,7 @@ function stopPiezoUpdates() {
 
   // 1. PPG Chart
   function renderPPGChart(chartData) {
-    if (chartData.ppg?.signal?.length > 1) {
+    if (chartData && chartData.ppg?.signal?.length > 1) {
       const ppgConfig = {
         type: 'line',
         data: {
@@ -412,7 +459,7 @@ function stopPiezoUpdates() {
 
   // 2. Respiration Chart
   function renderRespirationChart(chartData) {
-    if (chartData.respiration?.signal?.length > 1) {
+    if (chartData && chartData.respiration?.signal?.length > 1) {
       const respConfig = {
         type: 'line',
         data: {
@@ -441,7 +488,7 @@ function stopPiezoUpdates() {
   
   // 3. Sound Chart
   function renderSoundChart(chartData) {
-    if (chartData.sound?.signal?.length > 1) {
+    if (chartData && chartData.sound?.signal?.length > 1) {
       const soundConfig = {
         type: 'line',
         data: {
@@ -472,7 +519,7 @@ function stopPiezoUpdates() {
 
   // 4. Motion Chart
   function renderMotionChart(chartData) {
-    if (chartData.motion?.signal?.length > 1) {
+    if (chartData && chartData.motion?.signal?.length > 1) {
       const motionConfig = {
         type: 'line',
         data: {
@@ -504,7 +551,7 @@ function stopPiezoUpdates() {
 
   // 5. Piezo Chart
   function renderPiezoChart(chartData) {
-    if (chartData.piezo?.signal?.length > 1) {
+    if (chartData && chartData.piezo?.signal?.length > 1) {
       const piezoConfig = {
         type: 'line',
         data: {
@@ -535,36 +582,16 @@ function stopPiezoUpdates() {
   
   /**
    * Atualiza seletivamente os gráficos de análise "live"
+   * Esta função agora é chamada apenas uma vez no carregamento inicial e pelo loop principal
+   * para atualizar o gráfico de respiração, que não tem um modo "live" dedicado.
    */
   function updateLiveCharts(analysisData) {
-    const container = document.querySelector('.insights-container');
     if (!container || !analysisData || !analysisData.charts) {
-      // Se não há dados, limpa todos os gráficos de análise
-      renderPPGChart({});
       renderRespirationChart({});
-      renderSoundChart({});
-      renderMotionChart({});
-      renderPiezoChart({});
       return;
     }
     
     const chartData = analysisData.charts;
-
-  if (container.querySelector('.chart-toggle[data-chart-id="ppgChart"] .toggle-btn[data-mode="live"].active')) {
-    renderPPGChart(chartData);
-  }
-  if (container.querySelector('.chart-toggle[data-chart-id="soundChart"] .toggle-btn[data-mode="live"].active')) {
-    renderSoundChart(chartData);
-  }
-  if (container.querySelector('.chart-toggle[data-chart-id="motionChart"] .toggle-btn[data-mode="live"].active')) {
-    renderMotionChart(chartData);
-  }
-  // Piezo: só quando não estiver no loop "live" dedicado
-  if (!isPiezoLiveLoopOn &&
-      container.querySelector('.chart-toggle[data-chart-id="piezoChart"] .toggle-btn[data-mode="live"].active')) {
-    renderPiezoChart(chartData);
-  }
-  // Respiração é sempre live (se quiser toggle, pode incluir no HTML e seguir o mesmo padrão)
 
     // Respiração não tem toggle, está sempre 'live'
     renderRespirationChart(chartData);
@@ -597,6 +624,78 @@ function stopPiezoUpdates() {
       }
     };
     createOrUpdateChart('weeklyCoughChart', config);
+  }
+
+  // 8. Vitals History Chart (NOVO)
+  function renderVitalsHistoryChart(chartData) {
+    if (!chartData || !chartData.bpm || !chartData.spo2) {
+      showNoDataMessage('vitalsHistoryChart');
+      return;
+    }
+    const config = {
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          {
+            label: 'Batimentos (BPM)',
+            data: chartData.bpm,
+            borderColor: '#FF6384',
+            yAxisID: 'yBPM',
+            tension: 0.2,
+            pointRadius: 1,
+            spanGaps: true
+          },
+          {
+            label: 'Saturação (SpO2)',
+            data: chartData.spo2,
+            borderColor: '#36A2EB',
+            yAxisID: 'ySPO2',
+            tension: 0.2,
+            pointRadius: 1,
+            spanGaps: true
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        scales: {
+          x: { title: { display: true, text: 'Última Hora' } },
+          yBPM: { type: 'linear', position: 'left', title: { display: true, text: 'BPM' }, min: 40, max: 160 },
+          ySPO2: { type: 'linear', position: 'right', title: { display: true, text: 'SpO2 (%)' }, min: 85, max: 101, grid: { drawOnChartArea: false } }
+        },
+        plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } }
+      }
+    };
+    createOrUpdateChart('vitalsHistoryChart', config);
+  }
+
+  // 9. Environment History Chart (NOVO)
+  function renderEnvironmentHistoryChart(chartData) {
+    if (!chartData || !chartData.temp || !chartData.humidity) {
+      showNoDataMessage('environmentHistoryChart');
+      return;
+    }
+    const config = {
+      type: 'line',
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          { label: 'Temperatura (°C)', data: chartData.temp, borderColor: '#FF9F40', yAxisID: 'yTemp', tension: 0.2, pointRadius: 1, spanGaps: true },
+          { label: 'Umidade (%)', data: chartData.humidity, borderColor: '#4BC0C0', yAxisID: 'yHumidity', tension: 0.2, pointRadius: 1, spanGaps: true }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        scales: {
+          x: { title: { display: true, text: 'Última Hora' } },
+          yTemp: { type: 'linear', position: 'left', title: { display: true, text: '°C' } },
+          yHumidity: { type: 'linear', position: 'right', title: { display: true, text: '%' }, grid: { drawOnChartArea: false } }
+        },
+        plugins: { legend: { position: 'bottom' }, tooltip: { mode: 'index', intersect: false } }
+      }
+    };
+    createOrUpdateChart('environmentHistoryChart', config);
   }
 
   function updateTriggers(triggers) {
@@ -684,6 +783,31 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
 }
 
   /**
+   * Cria um gráfico "live" vazio, pronto para receber dados via WebSocket ou polling.
+   */
+  function initLiveChart(chartId, label, yAxisTitle) {
+    const config = {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: label,
+          data: [],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.1
+        }]
+      },
+      options: {
+        ...timeSeriesOptions,
+        scales: { ...timeSeriesOptions.scales, y: { ...timeSeriesOptions.scales.y, title: { ...timeSeriesOptions.scales.y.title, text: yAxisTitle } } }
+      }
+    };
+    createOrUpdateChart(chartId, config);
+  }
+
+
+  /**
    * Configura os botões de toggle para os gráficos de análise
    */
   function setupToggleButtons() {
@@ -693,59 +817,46 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
       const chartId = toggle.dataset.chartId;
       const sensorName = toggle.dataset.sensorName;
       
-      // Ignora o chart-toggle do MPU que terá lógica própria
-      if (chartId === 'realtimeMotionChart') return;
-
       const buttons = toggle.querySelectorAll('.toggle-btn');
       
       buttons.forEach(button => {
         button.addEventListener('click', () => {
+          // Lógica visual do botão
           buttons.forEach(btn => btn.classList.remove('active'));
           button.classList.add('active');
 
           const mode = button.dataset.mode;
 
-          if (chartId === 'piezoChart') {
+          // Para todos os loops de atualização live antes de mudar de modo
+          Object.keys(chartIntervals).forEach(stopLiveChartUpdate);
+
+          // Lógica específica para o MPU6050
+          // Este gráfico tem seu próprio loop de atualização e endpoint de histórico
+          if (chartId === 'realtimeMotionChart') {
+            stopMPUUpdates(); // Para o loop específico do MPU
             if (mode === 'live') {
-              stopPiezoUpdates();
-              startPiezoUpdates();          // ✅ piezo “ao vivo” fluido (1Hz)
-            } else if (mode === '24h') {    // seu botão chama “24 Horas”, mas carregamos 1h por padrão
-              stopPiezoUpdates();
-              loadHistoricalData('piezoChart', 'piezo', 1);
+              startMPUUpdates();
+            } else if (mode === 'history') { // O botão agora é de histórico
+              loadMPUHistory(60); // Carrega sempre a última 1 hora
             }
-            return; // evita cair na lógica genérica
+            return; // Impede que a lógica genérica abaixo seja executada para o MPU
           }
 
-          if (chartId === 'motionChart') {
-            if (mode === 'live') {
-              // re-render live com dados recentes
-              if (lastAnalysisData && lastAnalysisData.analysis) {
-                renderMotionChart(lastAnalysisData.analysis.charts);
-              } else {
-                showNoDataMessage(chartId, 'Aguardando dados recentes...');
-              }
-            } else if (mode === '24h') {
-              // aqui usamos o novo endpoint combinado (acc + gyro)
-              loadMotionHistory(60);
-            }
-            return; // evita cair na lógica genérica
-          }
-
+          // Lógica genérica para os outros gráficos de análise
           if (mode === 'live') {
-            // Re-renderiza o gráfico 'live' com os últimos dados
-            if (lastAnalysisData && lastAnalysisData.analysis) {
-              const chartData = lastAnalysisData.analysis.charts;
-              // Chama a função de renderização específica
-              if(chartId === 'ppgChart') renderPPGChart(chartData);
-              else if(chartId === 'soundChart') renderSoundChart(chartData);
-              else if(chartId === 'motionChart') renderMotionChart(chartData);
-              else if(chartId === 'piezoChart') renderPiezoChart(chartData);
+            // Inicializa um gráfico live vazio e começa a buscar dados
+            const yTitle = yAxisLimits[chartId]?.title || 'Valor';
+            const label = (yAxisLimits[chartId]?.title.split('(')[0] || sensorName || 'Sinal').trim();
+            initLiveChart(chartId, `Sinal de ${label}`, yTitle);
+            startLiveChartUpdate(chartId, sensorName);
+
+          } else if (mode === '24h') { // O botão de histórico para estes gráficos
+            // O motion chart tem uma função de histórico especial
+            if (chartId === 'motionChart') {
+              loadMotionHistory(60); // Carrega 1 hora (60 min)
             } else {
-              showNoDataMessage(chartId, 'Aguardando dados recentes...');
+              loadHistoricalData(chartId, sensorName, 1);
             }
-            
-          } else if (mode === '24h') { // O HTML usa '24h', mas vamos carregar 1h
-            loadHistoricalData(chartId, sensorName, 1);
           }
         });
       });
@@ -850,7 +961,11 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            x: { type: 'time', time: { tooltipFormat: 'dd/MM HH:mm' }, title: { display: true, text: 'Tempo' } },
+            x: { 
+              type: 'time', 
+              time: { tooltipFormat: 'dd/MM HH:mm', unit: 'minute', displayFormats: { minute: 'HH:mm' } }, 
+              title: { display: true, text: 'Tempo (Última Hora)' } 
+            },
             y: { title: { display: true, text: 'Aceleração Média (m/s^2)' } }
           },
           plugins: { tooltip: { mode: 'index', intersect: false } }
@@ -861,6 +976,24 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
       console.error("Falha ao carregar histórico MPU:", e);
       showNoDataMessage('realtimeMotionChart', `Falha: ${e.message}`);
     }
+  }
+
+  function startMPUUpdates() {
+    if (mpuUpdateInterval) clearInterval(mpuUpdateInterval);
+    
+    initMPUChart(); // Inicializa o gráfico limpo
+    fetchMPULatest(); // Busca o primeiro ponto
+    // O .ino envia a 1Hz (1000ms)
+    mpuUpdateInterval = setInterval(fetchMPULatest, 1000); 
+    document.getElementById('userStateIndicator').style.display = 'block';
+  }
+
+  function stopMPUUpdates() {
+    if (mpuUpdateInterval) {
+      clearInterval(mpuUpdateInterval);
+      mpuUpdateInterval = null;
+    }
+    document.getElementById('userStateIndicator').style.display = 'none';
   }
 
   async function loadMotionHistory(minutes = 60) {
@@ -893,7 +1026,11 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
         maintainAspectRatio: false,
         animation: false,
         scales: {
-          x: { type: 'time', time: { tooltipFormat: 'dd/MM HH:mm' }, title: { display: true, text: 'Tempo' }, ticks: { maxRotation: 0, autoSkip: true } },
+          x: { 
+            type: 'time', 
+            time: { tooltipFormat: 'dd/MM HH:mm', unit: 'minute', displayFormats: { minute: 'HH:mm' } }, 
+            title: { display: true, text: 'Tempo (Última Hora)' }, ticks: { maxRotation: 0, autoSkip: true } 
+          },
           y: { title: { display: true, text: 'Magnitude (Acel. e Rotação)' } }
         },
         plugins: { tooltip: { mode: 'index', intersect: false }, legend: { position: 'bottom' } }
@@ -905,60 +1042,6 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
     showNoDataMessage(chartId, `Falha: ${e.message}`);
   }
 }
-
-
-  function startMPUUpdates() {
-    if (mpuUpdateInterval) clearInterval(mpuUpdateInterval);
-    
-    initMPUChart(); // Inicializa o gráfico limpo
-    fetchMPULatest(); // Busca o primeiro ponto
-    // O .ino envia a 1Hz (1000ms)
-    mpuUpdateInterval = setInterval(fetchMPULatest, 1000); 
-    document.getElementById('userStateIndicator').style.display = 'block';
-  }
-
-  function stopMPUUpdates() {
-    if (mpuUpdateInterval) clearInterval(mpuUpdateInterval);
-    mpuUpdateInterval = null;
-    document.getElementById('userStateIndicator').style.display = 'none';
-  }
-
-  function setupMPUToggle() {
-    const toggle = document.querySelector('.chart-toggle[data-chart-id="realtimeMotionChart"]');
-    if (!toggle) return;
-    
-    const buttons = toggle.querySelectorAll('.toggle-btn');
-    const select = document.getElementById('mpuRangeSelect');
-
-    buttons.forEach(button => {
-      button.addEventListener('click', () => {
-        buttons.forEach(btn => btn.classList.remove('active'));
-        button.classList.add('active');
-        const mode = button.dataset.mode;
-
-        if (mode === 'live') {
-          select.style.display = 'none';
-          stopMPUUpdates();
-          startMPUUpdates();
-        } else if (mode === 'history') {
-          select.style.display = 'inline-block';
-          stopMPUUpdates();
-          loadMPUHistory(select.value);
-        }
-      });
-    });
-
-    select.addEventListener('change', () => {
-      if (toggle.querySelector('.toggle-btn[data-mode="history"].active')) {
-        stopMPUUpdates();
-        loadMPUHistory(select.value);
-      }
-    });
-    
-    // Inicia no modo 'live' por padrão
-    startMPUUpdates();
-  }
-
 
   // --- LÓGICA DO CALENDÁRIO ---
   
@@ -1016,7 +1099,6 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
         return response.json();
       })
       .then(data => {
-        lastAnalysisData = data.env_data; // Salva os dados mais recentes
         const envData = data.env_data;
 
         if (data.error) {
@@ -1029,11 +1111,15 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
           updateTriggers(envData.triggers);
           updatePerfGauge(envData.pefr_prediction); // Atualiza o PERF
           
-          // Atualiza seletivamente os gráficos "live"
-          updateLiveCharts(envData.analysis); 
+          // O loop principal agora só atualiza o gráfico de respiração
+          renderRespirationChart(envData.analysis.charts);
           
           // Gráfico de tosse é sempre atualizado
           renderWeeklyCoughChart(envData.weekly_cough_data);
+
+          // Renderiza os novos gráficos
+          renderVitalsHistoryChart(envData.vitals_history_chart);
+          renderEnvironmentHistoryChart(envData.env_history_chart);
 
           const timestampEl = document.getElementById('lastUpdated');
           if (timestampEl && envData.timestamp) {
@@ -1043,9 +1129,11 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
         } else {
           // Lida com erros ou dados vazios
           updateResults({ 'batimentos-cardiacos': 0, 'saturacao': 0, 'temperatura-corporal': 0, 'som': 0 });
-          updateLiveCharts(null); // Limpa gráficos de análise
+          renderRespirationChart(null); // Limpa gráfico de respiração
           renderWeeklyCoughChart(null);
           updatePerfGauge(null); // Limpa PERF
+          renderVitalsHistoryChart(null);
+          renderEnvironmentHistoryChart(null);
           if (!data.error) {
             updateTriggers([envData?.error || 'Dados ambientais indisponiveis no momento.']);
           }
@@ -1075,25 +1163,29 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
   
   // --- INICIALIZAÇÃO DA PÁGINA ---
 
-  // Renderiza os gráficos 'live' iniciais com os dados embutidos na página
+  // Renderiza os gráficos de ANÁLISE (que são mais complexos) com os dados embutidos na página
   if (window.env_data && window.env_data.analysis && window.env_data.analysis.charts) {
     const initialChartData = window.env_data.analysis.charts;
-    renderPPGChart(initialChartData);
     renderRespirationChart(initialChartData);
-    renderSoundChart(initialChartData);
-    renderMotionChart(initialChartData);
-    renderPiezoChart(initialChartData);
   } else {
     // Mostra mensagem se não houver dados iniciais
-    ['ppgChart', 'respirationChart', 'soundChart', 'motionChart', 'piezoChart'].forEach(id => showNoDataMessage(id));
+    showNoDataMessage('respirationChart');
   }
-  
-  // Renderiza gráfico de tosse inicial
+
+  // Inicializa os gráficos "live" simples (PPG, Som, Movimento, Piezo)
+  initLiveChart('ppgChart', 'Sinal PPG', yAxisLimits.ppgChart.title);
+  initLiveChart('soundChart', 'Sinal de Som', yAxisLimits.soundChart.title);
+  initLiveChart('motionChart', 'Intensidade do Movimento', yAxisLimits.motionChart.title);
+  initLiveChart('piezoChart', 'Sinal Piezo', yAxisLimits.piezoChart.title);
+
   if(window.env_data && window.env_data.weekly_cough_data) {
     renderWeeklyCoughChart(window.env_data.weekly_cough_data);
   } else {
     showNoDataMessage('weeklyCoughChart');
   }
+
+  renderVitalsHistoryChart(window.env_data ? window.env_data.vitals_history_chart : null);
+  renderEnvironmentHistoryChart(window.env_data ? window.env_data.env_history_chart : null);
 
   // Inicializa o medidor PERF com dados embutidos
   updatePerfGauge(window.env_data ? window.env_data.pefr_prediction : null);
@@ -1104,16 +1196,14 @@ async function loadHistoricalData(chartId, sensorName, hours = 1) {
   // Configura os botões de toggle (Live/Histórico)
   setupToggleButtons();
   
-  // Configura o gráfico MPU (Live/Histórico)
-  setupMPUToggle();
-
-    // Piezo inicia em "live" por padrão para ficar igual ao MPU
-  const piezoLiveBtn = document.querySelector('.chart-toggle[data-chart-id="piezoChart"] .toggle-btn[data-mode="live"]');
-  if (piezoLiveBtn) {
-    piezoLiveBtn.classList.add('active');
-    startPiezoUpdates();
-  }
-
+  // Inicia os gráficos de análise no modo "live" por padrão
+  startLiveChartUpdate('ppgChart', 'batimentos-cardiacos');
+  startLiveChartUpdate('soundChart', 'som');
+  startLiveChartUpdate('motionChart', 'acelerometro-z'); // Usando um sensor representativo
+  startLiveChartUpdate('piezoChart', 'piezo');
+  
+  // Inicia o gráfico MPU6050 também no modo "live"
+  startMPUUpdates();
 
   // Inicia o loop de atualização principal (que agora atualiza PERF, cards e gráficos 'live')
   loadData(); // Carga imediata

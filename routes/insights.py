@@ -335,6 +335,50 @@ def get_empty_analysis_data():
         "weekly_cough_data": {"labels": [], "data": []}
     }
 
+def get_historical_chart_data(conn, hours=1):
+    """Busca dados históricos para os gráficos de Sinais Vitais e Ambiente."""
+    end_time = datetime.now()
+    start_time = end_time - timedelta(hours=hours)
+    
+    query = """
+        SELECT "Data", "Hora", "batimentos-cardiacos", "saturacao", "temperatura-ambiente", "umidade"
+        FROM sensores
+        WHERE "Data" || ' ' || "Hora" >= ?
+    """
+    df = pd.read_sql_query(query, conn, params=(start_time.strftime('%Y-%m-%d %H:%M:%S'),))
+
+    if df.empty:
+        return None, None
+
+    df['Timestamp'] = pd.to_datetime(df['Data'] + ' ' + df['Hora'], errors='coerce')
+    df.dropna(subset=['Timestamp'], inplace=True)
+    df = df.set_index('Timestamp').sort_index()
+
+    # --- CORREÇÃO ---
+    # Seleciona apenas as colunas numéricas que queremos agregar.
+    # Isso evita que o .mean() tente calcular a média das colunas 'Data' e 'Hora'.
+    numeric_cols = ["batimentos-cardiacos", "saturacao", "temperatura-ambiente", "umidade"]
+
+    # Agrega os dados a cada 2 minutos para um gráfico mais limpo
+    df_agg = df[numeric_cols].resample('2min').mean().interpolate(method='linear')
+
+    labels = df_agg.index.strftime('%H:%M').tolist()
+
+    vitals_chart = {
+        "labels": labels,
+        "bpm": df_agg['batimentos-cardiacos'].round(1).where(pd.notna(df_agg['batimentos-cardiacos']), None).tolist(),
+        "spo2": df_agg['saturacao'].round(1).where(pd.notna(df_agg['saturacao']), None).tolist()
+    }
+
+    env_chart = {
+        "labels": labels,
+        "temp": df_agg['temperatura-ambiente'].round(1).where(pd.notna(df_agg['temperatura-ambiente']), None).tolist(),
+        "humidity": df_agg['umidade'].round(1).where(pd.notna(df_agg['umidade']), None).tolist()
+    }
+
+    return vitals_chart, env_chart
+
+
 def get_env_data():
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
@@ -358,6 +402,9 @@ def get_env_data():
             params=(seven_days_ago.strftime('%Y-%m-%d'),)
         )
         
+        # <<< OTIMIZAÇÃO: Query 3 (para os novos gráficos de histórico) >>>
+        vitals_history_chart, env_history_chart = get_historical_chart_data(conn, hours=1)
+
         conn.close()
         
         # <<< Lógica de erro atualizada para usar o novo DataFrame >>>
@@ -459,7 +506,10 @@ def get_env_data():
             'analysis': analysis_data,
             'triggers': triggers,
             'pefr_prediction': pefr_prediction,
-            'weekly_cough_data': weekly_cough_analysis if weekly_cough_analysis else {"labels": [], "data": []}
+            'weekly_cough_data': weekly_cough_analysis if weekly_cough_analysis else {"labels": [], "data": []},
+            # Adiciona os dados dos novos gráficos ao retorno
+            'vitals_history_chart': vitals_history_chart,
+            'env_history_chart': env_history_chart
         }
     except (sqlite3.Error, ValueError, FileNotFoundError) as e:
         print(f"Insights.py | get_env_data: ERRO no processamento do DB: {e}")
@@ -614,13 +664,33 @@ def api_historical_data():
             for idx, val in df_agg.items()
         ]
         
-        ### CORREÇÃO: A variável 'out' não estava definida. A variável correta é 'chart_data'.
-        ### 'minutes' não está definido, mas 'hours' está. 'rule_seconds' não está, mas 'agg_rule' está.
         return jsonify({"points": chart_data, "hours": hours, "rule": agg_rule}), 200, {'Cache-Control': 'no-store'}
 
     except Exception as e:
         print(f"Insights.py | api_historical_data: ERRO: {e}")
         return jsonify({"error": f"Erro ao processar dados históricos: {str(e)}"}), 500
+
+@insights_bp.route('/api/latest_analysis_point')
+def api_latest_analysis_point():
+    """
+    Endpoint super leve que retorna o último valor de um sensor específico
+    com um timestamp, para gráficos "live" fluidos.
+    """
+    sensor_name = request.args.get('sensor')
+    if not sensor_name:
+        return jsonify({"error": "Parâmetro 'sensor' é obrigatório."}), 400
+
+    app_state = current_app.config['app_state']
+    state_lock = current_app.config['state_lock']
+
+    with state_lock:
+        value = app_state.get(sensor_name, 0)
+
+    data = {
+        'x': datetime.now().isoformat(),
+        'y': value
+    }
+    return jsonify(data)
 
 @insights_bp.route('/api/mpu6050_latest')
 def api_mpu6050_latest():
@@ -765,8 +835,8 @@ def mpu6050_history():
         # O pandas não é mais necessário aqui
         out = [{"t": row[0],
                 "ax": (None if row[1] is None else float(row[1])),
-                "ay": (None if row[2] is None else float(row[2])),
-                "az": (None if row[3] is None else float(row[3]))}
+                "ay": (None if row[2] is None else float(row[2])), # CORREÇÃO: Índices corretos
+                "az": (None if row[3] is None else float(row[3]))} # CORREÇÃO: Índices corretos
                for row in rows]
                
         return jsonify({"points": out, "minutes": minutes, "rule_seconds": rule_seconds})

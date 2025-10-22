@@ -104,6 +104,16 @@
             </div>
 
             <div class="card">
+                <h3>Histórico de Sinais Vitais (1h)</h3>
+                <canvas id="vitalsHistoryChart"></canvas>
+            </div>
+
+            <div class="card">
+                <h3>Histórico do Ambiente (1h)</h3>
+                <canvas id="environmentHistoryChart"></canvas>
+            </div>
+
+            <div class="card">
                 <div class="chart-header-controls">
                     <h3>Sinal Piezoelétrico (Mov. Torácico)</h3>
                     <div class="chart-toggle" data-chart-id="piezoChart" data-sensor-name="piezo">
@@ -120,18 +130,9 @@
                   <div id="userStateIndicator" class="state-indicator">
                       <span id="userStateText">Estado: Carregando...</span>
                   </div>
-                  <div class="chart-toggle" data-chart-id="realtimeMotionChart" data-sensor-name="acelerometro-z">
+                  <div class="chart-toggle" data-chart-id="realtimeMotionChart">
                       <button class="toggle-btn active" data-mode="live">Monitoramento ao Vivo</button>
-                      <button class="toggle-btn" data-mode="history">Seletor</button>
-                      <select id="mpuRangeSelect" style="margin-left:.5rem; display:none">
-                      <option value="30">30 min</option>
-                      <option value="60">1 hora</option>
-                      <option value="180" selected>3 horas</option>
-                      <option value="360">6 horas</option>
-                      <option value="720">12 horas</option>
-                      <option value="1440">24 horas</option>
-                    </select>
-
+                      <button class="toggle-btn" data-mode="history">Última 1h</button>
                   </div>
               </div>
               <canvas id="realtimeMotionChart"></canvas>
