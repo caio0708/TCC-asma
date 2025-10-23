@@ -29,8 +29,8 @@ app_state = {
     'piezo': 0, 'contagem-tosse': 0, 'som': 0, 'umidade': 0,
     'acelerometro-x': 0, 'acelerometro-y': 0, 'acelerometro-z': 0,
     'giroscopio-x': 0, 'giroscopio-y': 0, 'giroscopio-z': 0, 'mpu_state': 0,
-    'spo2': 0, 'bpm': 0, 
-    'connected': False, 'coughs_total': 0
+    'spo2': 0, 'bpm': 0,
+    'connected': False
 }
 state_lock = threading.Lock()
 
@@ -40,6 +40,10 @@ state_lock = threading.Lock()
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
 MQTT_TOPIC_ALL = "sensorestcc/#" # Tópico correto para capturar tudo
+# --- ALTERAÇÃO: Tópico único para evitar receber dados de outros usuários ---
+# Troque 'aluno12345' por um identificador único seu (ex: seu nome, matrícula, etc.)
+MQTT_UNIQUE_PREFIX = "aluno12345" 
+MQTT_TOPIC_ALL = f"sensorestcc/{MQTT_UNIQUE_PREFIX}/#" # Ex: sensorestcc/aluno12345/#
 MQTT_CLIENT_ID = f"flask-app-monitor-{os.getpid()}"
 
 # Handler de mensagens MQTT unificado
@@ -63,7 +67,9 @@ KEY_ALIASES = {
     'accx': 'acelerometro-x', 'accy': 'acelerometro-y', 'accz': 'acelerometro-z',
     'gyrox': 'giroscopio-x', 'gyroy': 'giroscopio-y', 'gyroz': 'giroscopio-z',
     # tosse
-    'coughs': 'contagem-tosse'
+    # --- CORREÇÃO: Adiciona o alias para mpu-state ---
+    'mpu-state': 'mpu_state',
+    #'coughs': 'contagem-tosse'
 }
 
 # Quando uma chave primária chega, também atualizamos os “espelhos” usados no UI/DB
@@ -156,6 +162,8 @@ def setup_mqtt():
         if rc == 0:
             print("[MQTT] ✅ Conectado ao Broker MQTT!")
             client.subscribe(MQTT_TOPIC_ALL) # Assina o tópico geral
+            client.subscribe(MQTT_TOPIC_ALL) # Assina o tópico geral ÚNICO
+            # A assinatura do mpu-state agora será coberta pelo tópico geral
             client.subscribe("sensorestcc/mpu-state")
         else:
             print(f"[MQTT] ❌ Falha ao conectar, código: {rc}\n")
@@ -197,6 +205,9 @@ def on_cough_detected():
         print(f"[App] Tosse registrada! Total no dia: {app_state['contagem-tosse']}")
     if mqtt_client:
         mqtt_client.publish(f"sensorestcc/contagem-tosse", str(app_state['contagem-tosse']))
+        # --- ALTERAÇÃO: Publica no tópico único ---
+        topic_tosse = f"sensorestcc/{MQTT_UNIQUE_PREFIX}/contagem-tosse"
+        mqtt_client.publish(topic_tosse, str(app_state['contagem-tosse']))
 
 # =============================================================================
 # CONFIGURAÇÃO DA APLICAÇÃO FLASK

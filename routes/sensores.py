@@ -107,7 +107,7 @@ def atualizar_dados_api_externa(app_state, state_lock):
     
     while True:
         try:
-            print("API | Buscando dados de localização, clima e qualidade do ar...")
+            #print("API | Buscando dados de localização, clima e qualidade do ar...")
             # 1. Obter localização e chave da API
             lat, lon, city = get_user_location()
             api_key = os.getenv('API_WEATHER_KEY')
@@ -134,13 +134,13 @@ def atualizar_dados_api_externa(app_state, state_lock):
                     app_state['qualidade-ar-no2'] = no2
                     app_state['qualidade-ar-so2'] = so2
             
-            print(f"API | Estado atualizado com sucesso para a cidade: {city}.")
+            #print(f"API | Estado atualizado com sucesso para a cidade: {city}.")
 
         except Exception as e:
             print(f"API | Erro no loop de atualização de dados externos: {e}")
 
         # Espera 15 minutos (900 segundos) antes da próxima atualização
-        time.sleep(200)
+        time.sleep(600)
 
 # ===== FUNÇÃO DE SALVAR NO DB =====
 def salvar_dados_db(app_state, state_lock):

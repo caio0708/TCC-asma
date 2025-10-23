@@ -19,8 +19,10 @@ import requests
 YAMNET_MODEL_URL = "https://tfhub.dev/google/yamnet/1"
 yamnet_model = hub.load(YAMNET_MODEL_URL)
 CLASS_MAP_URL = "https://raw.githubusercontent.com/tensorflow/models/master/research/audioset/yamnet/yamnet_class_map.csv"
-DETECTION_THRESHOLD = 0.15
+DETECTION_THRESHOLD = 0.25
 COOLDOWN_SECONDS = 1.0 # Aumentado para evitar contagens duplas
+DETECTION_THRESHOLD = 0.3  # AUMENTADO: Torna o detector menos sensível a ruídos.
+COOLDOWN_SECONDS = 1.5 # Aumentado para evitar contagens duplas
 
 # --- Carregamento do Modelo e Metadados ---
 print("[Detector de Tosse] A carregar o modelo YAMNet...")
@@ -74,6 +76,9 @@ def iniciar_detector_tosse(on_cough_detected_callback):
     :param on_cough_detected_callback: A função a ser chamada quando uma tosse é detectada.
     """
     print("\n--- Detector de Tosse em Tempo Real ---")
+    # Adiciona uma pausa inicial para o microfone estabilizar
+    print("[Detector de Tosse] Aguardando 2 segundos para estabilização do microfone...")
+    sd.sleep(2000)
     print("A escutar o microfone... Pressione Ctrl+C para parar.")
 
     # Variável para controlar o cooldown
@@ -100,7 +105,6 @@ def iniciar_detector_tosse(on_cough_detected_callback):
         if mean_cough_score > DETECTION_THRESHOLD and cooldown_counter == 0:
             print(f"[Detector de Tosse] TOSSE DETETADA! Pontuação: {mean_cough_score:.2f}")
             
-            # **A MÁGICA ACONTECE AQUI**
             # Em vez de incrementar um contador local, chamamos a função que recebemos
             if on_cough_detected_callback:
                 on_cough_detected_callback()
@@ -116,6 +120,8 @@ def iniciar_detector_tosse(on_cough_detected_callback):
         block_size = int(sample_rate * block_duration)
 
         with sd.InputStream(
+            # DESCOMENTE E ALTERE a linha abaixo para forçar um microfone específico
+            device=1, # Substitua '3' pelo índice do seu microfone
             channels=1,
             samplerate=sample_rate,
             callback=audio_callback,
