@@ -121,10 +121,11 @@ def atualizar_dados_api_externa(app_state, state_lock):
 
             # 3. Atualizar o estado central de forma segura
             with state_lock:
-                # Atualiza clima
-                if temp_api is not None:
+                # --- ALTERAÇÃO: Atualiza clima apenas se não houver dados do sensor físico ---
+                # Se o valor do sensor for 0 (inicial), usa o dado da API como fallback.
+                if temp_api is not None and app_state.get('temperatura-ambiente', 0) == 0:
                     app_state['temperatura-ambiente'] = temp_api
-                if humidity_api is not None:
+                if humidity_api is not None and app_state.get('umidade', 0) == 0:
                     app_state['umidade'] = humidity_api
 
                 # Atualiza qualidade do ar se os dados foram recebidos com sucesso
