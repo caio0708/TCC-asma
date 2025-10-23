@@ -39,7 +39,6 @@ state_lock = threading.Lock()
 # =============================================================================
 MQTT_BROKER = "broker.hivemq.com"
 MQTT_PORT = 1883
-MQTT_TOPIC_ALL = "sensorestcc/#" # Tópico correto para capturar tudo
 # --- ALTERAÇÃO: Tópico único para evitar receber dados de outros usuários ---
 # Troque 'aluno12345' por um identificador único seu (ex: seu nome, matrícula, etc.)
 MQTT_UNIQUE_PREFIX = "aluno12345" 
@@ -66,7 +65,6 @@ KEY_ALIASES = {
     # IMU
     'accx': 'acelerometro-x', 'accy': 'acelerometro-y', 'accz': 'acelerometro-z',
     'gyrox': 'giroscopio-x', 'gyroy': 'giroscopio-y', 'gyroz': 'giroscopio-z',
-    # tosse
     # --- CORREÇÃO: Adiciona o alias para mpu-state ---
     'mpu-state': 'mpu_state',
     #'coughs': 'contagem-tosse'
@@ -161,7 +159,6 @@ def setup_mqtt():
     def on_connect(client, userdata, flags, rc):
         if rc == 0:
             print("[MQTT] ✅ Conectado ao Broker MQTT!")
-            client.subscribe(MQTT_TOPIC_ALL) # Assina o tópico geral
             client.subscribe(MQTT_TOPIC_ALL) # Assina o tópico geral ÚNICO
             # A assinatura do mpu-state agora será coberta pelo tópico geral
             client.subscribe("sensorestcc/mpu-state")
@@ -204,7 +201,6 @@ def on_cough_detected():
         app_state['contagem-tosse'] += 1
         print(f"[App] Tosse registrada! Total no dia: {app_state['contagem-tosse']}")
     if mqtt_client:
-        mqtt_client.publish(f"sensorestcc/contagem-tosse", str(app_state['contagem-tosse']))
         # --- ALTERAÇÃO: Publica no tópico único ---
         topic_tosse = f"sensorestcc/{MQTT_UNIQUE_PREFIX}/contagem-tosse"
         mqtt_client.publish(topic_tosse, str(app_state['contagem-tosse']))

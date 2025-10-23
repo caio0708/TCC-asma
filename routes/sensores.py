@@ -29,7 +29,10 @@ os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 # MQTT e atualizar sensores
 BROKER = "broker.hivemq.com"
 PORT = 1883
-TOPIC_ALL = "sensorestcc/#"
+# --- ALTERAÇÃO: Tópico único para evitar receber dados de outros usuários ---
+# Use o mesmo identificador único que você definiu em app.py
+MQTT_UNIQUE_PREFIX = "aluno12345" 
+TOPIC_ALL = f"sensorestcc/{MQTT_UNIQUE_PREFIX}/#"
 
 def get_today_cough_count_from_db():
     """Consulta o banco de dados para obter a contagem máxima de tosse para o dia atual."""
@@ -153,10 +156,6 @@ def salvar_dados_db(app_state, state_lock):
             with state_lock:
                 current_state = app_state.copy()
 
-            # <<< LÓGICA DE TOSSE CORRIGIDA >>>
-            # O app_state['contagem-tosse'] já é a fonte da verdade, inicializado com o valor do DB.
-
-            # <<< ALTERADO: Monta a lista de valores a partir do estado central >>>
             valores_para_salvar = [
                 datetime.now().strftime("%Y-%m-%d"),
                 datetime.now().strftime("%H:%M:%S")
