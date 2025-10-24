@@ -1,0 +1,11 @@
+frequencia-respiratoria_mean,batimentos-cardiacos_mean,saturacao_mean,temperatura_mean,qualidade-ar-pm25_mean,qualidade-ar-pm10_mean,qualidade-ar-aqi_mean,movimento-toracico_mean,contagem-tosse_mean,umidade_mean,target
+18,82,97,24,15,25,35,4.2,3,60,0
+22,95,93,32,120,180,210,2.8,12,30,1
+16,78,98,22,20,30,40,4.0,2,55,0
+26,105,89,28,200,300,350,1.5,20,25,1
+17,80,96,18,80,120,150,3.5,8,70,0
+24,100,91,35,150,220,280,2.0,15,40,1
+19,85,95,26,30,45,60,3.8,5,50,0
+28,110,87,10,180,250,320,1.2,18,20,1
+20,88,94,20,40,60,80,3.6,6,65,0
+30,115,85,38,250,400,450,0.8,25,15,1

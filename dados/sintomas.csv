@@ -1,0 +1,6 @@
+Data,Hora,Age,Gender,BMI,Smoking_Status,Family_History,Allergies,Air_Pollution_Level,Physical_Activity_Level,Occupation_Type,Comorbidities,Medication_Adherence,Peak_Expiratory_Flow,FeNO_Level,Number_of_ER_Visits,Username
+2025-10-20,19:00,22,Male,25.0,Former,0,Pollen,Moderate,Moderate,Indoor,Hypertension,1.0,250,25,3,dario
+2025-10-20,19:02,22,Male,30.0,Former,0,Pets,Moderate,Sedentary,Indoor,None,0.3,500,50,2,dario
+2025-10-20,19:05,22,Male,28.0,Never,0,Dust,Moderate,Sedentary,Outdoor,Hypertension,0.7,305,47,1,dario
+2025-10-20,19:34,22,Other,35.0,Current,0,Pollen,Moderate,Sedentary,Indoor,None,0.4,350,49,2,caio
+2025-10-20,19:47,22,Male,23.0,Never,0,Pollen,Low,Sedentary,Indoor,None,0.2,232,33,1,caio

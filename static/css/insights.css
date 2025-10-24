@@ -1,0 +1,1080 @@
+/* ====== Fonte Inter ====== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* ====== Design Tokens ====== */
+:root {
+  /* Cores base (light) - CORRIGIDAS CONFORME SOLICITADO */
+  --primary-color: #0EA5E9;   /* Cor para títulos e textos principais */
+  --secondary-color: #1E408A; /* Cor para botões e bordas interativas */
+  --accent-color: #7DD3FC;
+  --light-blue: #BFDBFE;
+  --white: #ffffff;
+
+  /* Cores de Fundo e Texto (Definidas para consistência) */
+  --bg: #F5F7FA;
+  --bg-elev: #FFFFFF;
+  --bg-soft: #F0F9FF;
+  --text: #000000;
+  --text-muted: #6B7280;
+  --border: #E5E7EB;
+
+  /* Sombras e Bordas */
+  --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --radius-sm: 10px;
+  --radius: 12px;
+  --radius-lg: 16px;
+
+  /* Espaçamento */
+  --space-1: .25rem;
+  --space-2: .5rem;
+  --space-3: .75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Tipografia */
+  --fs-xs: clamp(0.75rem, 0.72rem + 0.2vw, 0.8rem);
+  --fs-sm: clamp(0.85rem, 0.82rem + 0.3vw, 0.95rem);
+  --fs-md: clamp(0.95rem, 0.9rem + 0.4vw, 1rem);
+  --fs-lg: clamp(1.05rem, 1rem + 0.5vw, 1.25rem);
+  --fs-xl: clamp(1.25rem, 1.1rem + 1vw, 1.6rem);
+  --transition: 180ms ease;
+}
+
+/* ====== Reset base ====== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Acessibilidade: foco visível */
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: 3px solid var(--accent-color);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ====== Contêiner ====== */
+#root,
+.container {
+  max-width: 1440px; /* ALTERADO: Aumentei a largura máxima para mais espaço */
+  margin-inline: auto;
+  padding: var(--space-8) var(--space-6); /* ALTERADO: Aumentei o padding lateral */
+}
+
+/* ====== Barra de Navegação ====== */
+.navbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: var(--secondary-color);
+  padding: 10px 20px;
+  color: var(--white);
+}
+.navbar .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.navbar .logo img {
+  width: 30px;
+  height: auto;
+}
+.nav-links {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 20px;
+  list-style: none;
+}
+.nav-links li a {
+  color: var(--white);
+  text-decoration: none;
+  font-weight: 500;
+}
+.nav-links li a.active,
+.nav-links li a:hover {
+  color: var(--accent-color);
+}
+
+/* ====== Layout ====== */
+.page-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+}
+
+/* ====== Cards genéricos ====== */
+.card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ====== Resultados (kpis) ====== */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.result-card {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.result-card .value {
+  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+  font-weight: 700;
+  color: var(--primary-color); /* CORRIGIDO: Cor do título/valor principal */
+  margin: 0;
+}
+.result-card .label {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-top: .35rem;
+}
+
+/* ====== Charts / Insights ====== */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+  gap: var(--space-6);
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+@media (min-width: 1024px) {
+  .charts-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.insights-container .card {
+  width: 100%;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 400px; /* Aumentei um pouco para melhor visualização */
+  /* ### CORREÇÃO ###: Removida a linha 'aspect-ratio' que causava problemas */
+}
+
+.insights-container .card canvas {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: var(--radius);
+}
+
+/* ### ADIÇÃO ###: Estilo para o cabeçalho e indicador de estado do novo gráfico */
+.chart-header-realtime {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+}
+
+.chart-header-realtime h4 {
+    margin: 0;
+    font-size: var(--fs-md);
+    color: var(--text);
+}
+
+.state-indicator {
+    padding: 5px 12px;
+    border-radius: 999px;
+    color: var(--white);
+    font-weight: 600;
+    font-size: var(--fs-xs);
+    transition: background-color 0.3s ease;
+    text-align: center;
+    background-color: #6c757d; /* Cor padrão 'cinza' */
+}
+
+/* ### ADIÇÃO ###: Cores para os diferentes estados do MPU6050 */
+.state-indicator.state-idle {
+    background-color: #28a745; /* Verde para 'Parado' */
+}
+/* ALTERADO: Agrupado em uma única classe 'state-active' */
+.state-indicator.state-active {
+    background-color: #ffc107; /* Amarelo para 'Em Movimento' */
+}
+.state-indicator.state-alert {
+    background-color: #dc3545; /* Vermelho para 'Queda' */
+}
+
+/* ====== Seção de Análise de Performance (gauge) ====== */
+.perf-analysis-section {
+  margin-bottom: var(--space-6);
+  background: var(--bg-elev);
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.perf-analysis-section h3 {
+  margin: 0 0 var(--space-5);
+  text-align: center;
+  font-size: var(--fs-lg);
+  color: var(--primary-color); /* CORRIGIDO: Cor do título */
+}
+.perf-gauge {
+  position: relative;
+  width: 100%;
+  margin-bottom: var(--space-5);
+}
+.perf-gauge-bar {
+  display: grid;
+  grid-template-columns: 5fr 3fr 2fr; /* 50/30/20 */
+  height: 28px;
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .06);
+  border: 1px solid var(--border);
+}
+.perf-gauge-bar .zone {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: var(--fs-xs);
+  letter-spacing: .2px;
+}
+.perf-gauge-bar .risk {
+  background: #ef4444;
+}
+.perf-gauge-bar .moderate {
+  background: #f59e0b;
+}
+.perf-gauge-bar .safe {
+  background: #22c55e;
+}
+.perf-indicator {
+  position: absolute;
+  bottom: -38px;
+  left: 0;
+  transform: translateX(-50%);
+  transition: left 300ms ease-out;
+  text-align: center;
+  z-index: 1;
+}
+.perf-indicator::before {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 14px solid color-mix(in oklab, var(--text), transparent 20%);
+  margin: 0 auto 6px;
+}
+.perf-indicator span {
+  background: color-mix(in oklab, var(--text), transparent 10%);
+  color: var(--bg-elev);
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+.perf-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-4);
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.perf-details div span {
+  font-weight: 700;
+  color: var(--text);
+}
+.perf-zone-text .zone-label.risk {
+  color: #ef4444;
+}
+.perf-zone-text .zone-label.moderate {
+  color: #f59e0b;
+}
+.perf-zone-text .zone-label.safe {
+  color: #22c55e;
+}
+
+/* ====== Exercício de Respiração ====== */
+.breathing-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  margin: var(--space-8) auto;
+  max-width: 520px;
+  align-items: center;
+}
+@media (min-width: 600px) {
+  .breathing-container {
+    grid-template-columns: auto 1fr;
+  }
+}
+#breathingCircle {
+  width: 160px;
+  height: 160px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  transition: transform 3s ease-in-out;
+}
+.circle-bg {
+  fill: none;
+  stroke: var(--border); /* Cor de fundo da borda */
+  stroke-width: 8;
+}
+.circle-progress {
+  fill: none;
+  stroke: var(--secondary-color); /* CORRIGIDO: Cor da borda de progresso */
+  stroke-width: 8;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset .3s linear;
+}
+#breathingText {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+  position: absolute;
+}
+
+/* ====== Botão primário ====== */
+#startGameBtn {
+  background: var(--primary-color); /* CORRIGIDO: Cor de fundo do botão */
+  color: var(--white);              /* CORRIGIDO: Cor do texto para contraste */
+  border: none;
+  padding: .75rem 1.1rem;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+}
+#startGameBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+#startGameBtn:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ====== Seção de Gráficos (collapsible) ====== */
+.charts-section {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin: var(--space-8) 0;
+  overflow: hidden;
+  background: var(--bg-elev);
+  box-shadow: var(--shadow-sm);
+}
+.charts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-soft);
+  padding: .8rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+.charts-header h3 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  color: var(--primary-color); /* CORRIGIDO: Cor do título */
+}
+.toggle-charts-btn {
+  background: transparent;
+  border: 0;
+  font-size: var(--fs-md);
+  line-height: 1;
+  rotate: 0deg;
+  transition: rotate var(--transition);
+  color: var(--text-muted);
+}
+.charts-section.collapsed .toggle-charts-btn {
+  rotate: 180deg;
+}
+.charts-section.collapsed .insights-container {
+  display: none;
+}
+
+/* ====== Links de download ====== */
+#downloadContainer a.download-btn {
+  display: inline-block;
+  margin-top: var(--space-4);
+  padding: .7rem 1rem;
+  background: var(--secondary-color); /* CORRIGIDO: Cor de fundo do botão */
+  color: var(--white);                 /* CORRIGIDO: Cor do texto para contraste */
+  font-weight: 700;
+  border-radius: 10px;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid color-mix(in oklab, var(--secondary-color), black 12%);
+  transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+}
+#downloadContainer a.download-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ====== Prediction Result ====== */
+#predictionResult .loading {
+  color: #555;
+  font-style: italic;
+}
+#predictionResult .error {
+  color: #D32F2F; /* Vermelho */
+  font-weight: bold;
+}
+#predictionResult .result-title {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+#predictionResult .result-class {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: var(--primary-color); /* Azul */
+  margin-bottom: 5px;
+}
+#predictionResult .result-confidence {
+  font-size: 1rem;
+  color: #4CAF50; /* Verde */
+}
+
+/* ====== Títulos de Seção e Subtítulos ====== */
+.section-title {
+  color: var(--primary-color);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  text-align: center;
+  position: relative;
+  padding-bottom: 1rem; /* 16px se a fonte base for 16px */
+  margin-bottom: 1rem;  /* Espaço extra para o próximo elemento */
+}
+
+.section-title::after {
+  content: '';
+  position: absolute;
+  width: 450px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  border-radius: 2px;
+}
+
+.subtitle {
+  color: var(--text-muted);     /* Cor mais suave para o texto de apoio */
+  font-size: var(--fs-md);      /* Tamanho de fonte padrão para legibilidade */
+  font-weight: 400;             /* Peso normal, sem negrito */
+  margin-top: 0;                /* Remove espaço extra acima */
+  margin-bottom: var(--space-6);/* Espaço maior abaixo, antes do conteúdo */
+  text-align: center;
+  max-width: 600px;             /* Limita a largura para melhor leitura */
+  margin-inline: auto;          /* Centraliza o bloco de texto */
+}
+
+/* ====== Utilidades ====== */
+.hidden {
+  display: none !important;
+}
+.muted {
+  color: var(--text-muted);
+}
+.center {
+  text-align: center;
+}
+
+/* ====== Prefere menos movimento ====== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+  #breathingCircle {
+    transition: none !important;
+  }
+  .perf-indicator {
+    transition: none !important;
+  }
+}
+
+/* Loading Overlay */
+/* General Styles */
+body {
+  /* ====== Fonte Inter ====== */
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  /* ====== Design Tokens ====== */
+  :root {
+    /* Cores base (light) - CORRIGIDAS CONFORME SOLICITADO */
+    --primary-color: #0EA5E9;   /* Cor para títulos e textos principais */
+    --secondary-color: #1E408A; /* Cor para botões e bordas interativas */
+    --accent-color: #7DD3FC;
+    --light-blue: #BFDBFE;
+    --white: #ffffff;
+
+    /* Cores de Fundo e Texto (Definidas para consistência) */
+    --bg: #F5F7FA;
+    --bg-elev: #FFFFFF;
+    --bg-soft: #F0F9FF;
+    --text: #000000;
+    --text-muted: #6B7280;
+    --border: #E5E7EB;
+
+    /* Sombras e Bordas */
+    --shadow-sm: 0 2px 5px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --radius-sm: 10px;
+    --radius: 12px;
+    --radius-lg: 16px;
+
+    /* Espaçamento */
+    --space-1: .25rem;
+    --space-2: .5rem;
+    --space-3: .75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+
+    /* Tipografia */
+    --fs-xs: clamp(0.75rem, 0.72rem + 0.2vw, 0.8rem);
+    --fs-sm: clamp(0.85rem, 0.82rem + 0.3vw, 0.95rem);
+    --fs-md: clamp(0.95rem, 0.9rem + 0.4vw, 1rem);
+    --fs-lg: clamp(1.05rem, 1rem + 0.5vw, 1.25rem);
+    --fs-xl: clamp(1.25rem, 1.1rem + 1vw, 1.6rem);
+    --transition: 180ms ease;
+  }
+
+  /* ====== Reset base ====== */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: var(--fs-md);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Acessibilidade: foco visível */
+  :where(a, button, [role="button"], input, select, textarea):focus-visible {
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  /* ====== Contêiner ====== */
+  #root,
+  .container {
+    max-width: 1440px; /* ALTERADO: Aumentei a largura máxima para mais espaço */
+    margin-inline: auto;
+    padding: var(--space-8) var(--space-6); /* ALTERADO: Aumentei o padding lateral */
+  }
+
+  /* ====== Barra de Navegação ====== */
+  .navbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background-color: var(--secondary-color);
+    padding: 10px 20px;
+    color: var(--white);
+  }
+  .navbar .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .navbar .logo img {
+    width: 30px;
+    height: auto;
+  }
+  .nav-links {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 20px;
+    list-style: none;
+  }
+  .nav-links li a {
+    color: var(--white);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .nav-links li a.active,
+  .nav-links li a:hover {
+    color: var(--accent-color);
+  }
+
+  /* ====== Layout ====== */
+  .page-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+
+  /* ====== Cards genéricos ====== */
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ====== Resultados (kpis) ====== */
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+  }
+  .result-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--space-4);
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .result-card .value {
+    font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+    font-weight: 700;
+    color: var(--primary-color); /* CORRIGIDO: Cor do título/valor principal */
+    margin: 0;
+  }
+  .result-card .label {
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    margin-top: .35rem;
+  }
+
+  /* ====== Charts / Insights ====== */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: var(--space-6); /* Mantém o espaçamento que você já definiu */
+    max-width: 1800px;
+    margin: 0 auto;
+  }
+
+  /* NOVO: Media query para forçar 2 colunas em telas maiores */
+  @media (min-width: 1024px) {
+    .charts-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  .insights-container .card {
+    width: 100%;
+    padding: var(--space-6); /* ALTERADO: Mais padding interno */
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4); /* ALTERADO: Mais espaçamento entre título e gráfico */
+    min-height: 350px;   /* ALTERADO: Aumentei a altura mínima para o gráfico respirar */
+    aspect-ratio: 16 / 10; /* ALTERADO:OQ FAZ TRAVAR  */
+  }
+  .insights-container .card canvas {
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1 1 auto;
+    min-height: 0;
+    border-radius: var(--radius);
+  }
+
+  /* ====== Seção de Análise de Performance (gauge) ====== */
+  .perf-analysis-section {
+    margin-bottom: var(--space-6);
+    background: var(--bg-elev);
+    padding: var(--space-6);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+  .perf-analysis-section h3 {
+    margin: 0 0 var(--space-5);
+    text-align: center;
+    font-size: var(--fs-lg);
+    color: var(--primary-color); /* CORRIGIDO: Cor do título */
+  }
+  .perf-gauge {
+    position: relative;
+    width: 100%;
+    margin-bottom: var(--space-5);
+  }
+  .perf-gauge-bar {
+    display: grid;
+    grid-template-columns: 5fr 3fr 2fr; /* 50/30/20 */
+    height: 28px;
+    border-radius: 999px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, .06);
+    border: 1px solid var(--border);
+  }
+  .perf-gauge-bar .zone {
+    display: grid;
+    place-items: center;
+    color: #fff;
+    font-weight: 600;
+    font-size: var(--fs-xs);
+    letter-spacing: .2px;
+  }
+  .perf-gauge-bar .risk {
+    background: #ef4444;
+  }
+  .perf-gauge-bar .moderate {
+    background: #f59e0b;
+  }
+  .perf-gauge-bar .safe {
+    background: #22c55e;
+  }
+  .perf-indicator {
+    position: absolute;
+    bottom: -38px;
+    left: 0;
+    transform: translateX(-50%);
+    transition: left 300ms ease-out;
+    text-align: center;
+    z-index: 1;
+  }
+  .perf-indicator::before {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 14px solid color-mix(in oklab, var(--text), transparent 20%);
+    margin: 0 auto 6px;
+  }
+  .perf-indicator span {
+    background: color-mix(in oklab, var(--text), transparent 10%);
+    color: var(--bg-elev);
+    padding: 4px 8px;
+    border-radius: 7px;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    box-shadow: var(--shadow-sm);
+  }
+  .perf-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--space-4);
+    text-align: center;
+    font-size: var(--fs-sm);
+    color: var(--text-muted);
+    margin-top: var(--space-6);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--border);
+  }
+  .perf-details div span {
+    font-weight: 700;
+    color: var(--text);
+  }
+  .perf-zone-text .zone-label.risk {
+    color: #ef4444;
+  }
+  .perf-zone-text .zone-label.moderate {
+    color: #f59e0b;
+  }
+  .perf-zone-text .zone-label.safe {
+    color: #22c55e;
+  }
+
+  /* ====== Exercício de Respiração ====== */
+  .breathing-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+    margin: var(--space-8) auto;
+    max-width: 520px;
+    align-items: center;
+  }
+  @media (min-width: 600px) {
+    .breathing-container {
+      grid-template-columns: auto 1fr;
+    }
+  }
+  #breathingCircle {
+    width: 160px;
+    height: 160px;
+    position: relative;
+    display: grid;
+    place-items: center;
+    transition: transform 3s ease-in-out;
+  }
+  .circle-bg {
+    fill: none;
+    stroke: var(--border); /* Cor de fundo da borda */
+    stroke-width: 8;
+  }
+  .circle-progress {
+    fill: none;
+    stroke: var(--secondary-color); /* CORRIGIDO: Cor da borda de progresso */
+    stroke-width: 8;
+    stroke-linecap: round;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+    transition: stroke-dashoffset .3s linear;
+  }
+  #breathingText {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--text);
+    text-align: center;
+    position: absolute;
+  }
+
+  /* ====== Botão primário ====== */
+  #startGameBtn {
+    background: var(--primary-color); /* CORRIGIDO: Cor de fundo do botão */
+    color: var(--white);              /* CORRIGIDO: Cor do texto para contraste */
+    border: none;
+    padding: .75rem 1.1rem;
+    font-size: var(--fs-sm);
+    font-weight: 700;
+    border-radius: 12px;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
+  }
+  #startGameBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  #startGameBtn:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ====== Seção de Gráficos (collapsible) ====== */
+  .charts-section {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin: var(--space-8) 0;
+    overflow: hidden;
+    background: var(--bg-elev);
+    box-shadow: var(--shadow-sm);
+  }
+  .charts-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-soft);
+    padding: .8rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+  }
+  .charts-header h3 {
+    margin: 0;
+    font-size: var(--fs-lg);
+    color: var(--primary-color); /* CORRIGIDO: Cor do título */
+  }
+  .toggle-charts-btn {
+    background: transparent;
+    border: 0;
+    font-size: var(--fs-md);
+    line-height: 1;
+    rotate: 0deg;
+    transition: rotate var(--transition);
+    color: var(--text-muted);
+  }
+  .charts-section.collapsed .toggle-charts-btn {
+    rotate: 180deg;
+  }
+  .charts-section.collapsed .insights-container {
+    display: none;
+  }
+
+  /* ====== Links de download ====== */
+  #downloadContainer a.download-btn {
+    display: inline-block;
+    margin-top: var(--space-4);
+    padding: .7rem 1rem;
+    background: var(--secondary-color); /* CORRIGIDO: Cor de fundo do botão */
+    color: var(--white);                 /* CORRIGIDO: Cor do texto para contraste */
+    font-weight: 700;
+    border-radius: 10px;
+    text-decoration: none;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid color-mix(in oklab, var(--secondary-color), black 12%);
+    transition: background var(--transition), transform var(--transition), box-shadow var(--transition);
+  }
+  #downloadContainer a.download-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+
+  /* ====== Prediction Result ====== */
+  #predictionResult .loading {
+    color: #555;
+    font-style: italic;
+  }
+  #predictionResult .error {
+    color: #D32F2F; /* Vermelho */
+    font-weight: bold;
+  }
+  #predictionResult .result-title {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  #predictionResult .result-class {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--primary-color); /* Azul */
+    margin-bottom: 5px;
+  }
+  #predictionResult .result-confidence {
+    font-size: 1rem;
+    color: #4CAF50; /* Verde */
+  }
+
+  /* ====== Títulos de Seção e Subtítulos ====== */
+  .section-title {
+    color: var(--primary-color);
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    text-align: center;
+    position: relative;
+    padding-bottom: 1rem; /* 16px se a fonte base for 16px */
+    margin-bottom: 1rem;  /* Espaço extra para o próximo elemento */
+  }
+
+  .section-title::after {
+    content: '';
+    position: absolute;
+    width: 450px;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 0;
+    border-radius: 2px;
+  }
+
+  .subtitle {
+    color: var(--text-muted);     /* Cor mais suave para o texto de apoio */
+    font-size: var(--fs-md);      /* Tamanho de fonte padrão para legibilidade */
+    font-weight: 400;             /* Peso normal, sem negrito */
+    margin-top: 0;                /* Remove espaço extra acima */
+    margin-bottom: var(--space-6);/* Espaço maior abaixo, antes do conteúdo */
+    text-align: center;
+    max-width: 600px;             /* Limita a largura para melhor leitura */
+    margin-inline: auto;          /* Centraliza o bloco de texto */
+  }
+
+  /* ====== Utilidades ====== */
+  .hidden {
+    display: none !important;
+  }
+  .muted {
+    color: var(--text-muted);
+  }
+  .center {
+    text-align: center;
+  }
+
+  /* ====== Prefere menos movimento ====== */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition: none !important;
+      animation: none !important;
+    }
+    #breathingCircle {
+      transition: none !important;
+    }
+    .perf-indicator {
+      transition: none !important;
+    }
+  }
+}
+
+    .chart-header-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      flex-wrap: wrap; /* Permite quebrar linha em telas pequenas */
+    }
+    .chart-header-controls h3 {
+      margin: 0;
+      margin-right: 10px; /* Espaço entre o título e os botões */
+    }
+    .chart-toggle {
+      display: flex;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .chart-toggle .toggle-btn {
+      padding: 6px 12px;
+      background-color: #f8f9fa;
+      border: none;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #555;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .chart-toggle .toggle-btn:not(:last-child) {
+      border-right: 1px solid #ddd;
+    }
+    .chart-toggle .toggle-btn:hover {
+      background-color: #e9ecef;
+    }
+    .chart-toggle .toggle-btn.active {
+      background-color: #007bff;
+      color: white;
+    }
